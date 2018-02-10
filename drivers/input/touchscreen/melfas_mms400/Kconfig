@@ -44,5 +44,14 @@ config TOUCHSCREEN_MELFAS_MMS492
 
 #          To compile this driver as a module, choose M here: the module will be called mms_ts.
 
+config DUAL_TSP
+       tristate "Dual_TSP"
+	depends on I2C
+	help
+	  This enables support for Dual TSP.
+	  use MELFAS MMS449.
+
+
+
 endif
 

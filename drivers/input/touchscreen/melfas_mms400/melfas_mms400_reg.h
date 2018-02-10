@@ -40,6 +40,7 @@
 #define MIP_R1_INFO_PROTOCOL_NAME			0x50
 #define MIP_R1_INFO_PROTOCOL_VERSION			0x58
 #define MIP_R1_INFO_IC_ID				0x70
+#define MIP_R1_INFO_IC_CONTACT_ON_THD			0x78
 
 #define MIP_R0_EVENT					0x02
 #define MIP_R1_EVENT_SUPPORTED_FUNC			0x00
@@ -96,6 +97,12 @@
 
 #define MIP_R0_LOG					0x10
 #define MIP_R1_LOG_TRIGGER				0x14
+
+#define MIP_R0_AOT					0x0E
+#define MIP_R0_AOT_CTRL					0x02
+#define MIP_R0_AOT_EVENT				0x03
+#define MIP_R0_AOT_BOX_W				0x04
+#define MIP_R0_AOT_POSITION_X				0x0C
 
 //Value
 #define MIP_EVENT_INPUT_PRESS				0x80
