@@ -12,13 +12,15 @@
 #define DEBUG
 
 #include <linux/battery/sec_charger.h>
+#include "debug.h"
+
 static int smb347_i2c_write(struct i2c_client *client,
 				int reg, u8 *buf)
 {
 	int ret;
 	ret = i2c_smbus_write_i2c_block_data(client, reg, 1, buf);
 	if (ret < 0)
-		dev_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -28,7 +30,7 @@ static int smb347_i2c_read(struct i2c_client *client,
 	int ret;
 	ret = i2c_smbus_read_i2c_block_data(client, reg, 1, buf);
 	if (ret < 0)
-		dev_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -47,16 +49,16 @@ static void smb347_set_command(struct i2c_client *client,
 	u8 data = 0;
 	val = smb347_i2c_read(client, reg, &data);
 	if (val >= 0) {
-		dev_dbg(&client->dev, "%s : reg(0x%02x): 0x%02x",
+		dev_battery_dbg(&client->dev, "%s : reg(0x%02x): 0x%02x",
 			__func__, reg, data);
 		if (data != datum) {
 			data = datum;
 			if (smb347_i2c_write(client, reg, &data) < 0)
-				dev_err(&client->dev,
+				dev_battery_err(&client->dev,
 					"%s : error!\n", __func__);
 			val = smb347_i2c_read(client, reg, &data);
 			if (val >= 0)
-				dev_dbg(&client->dev, " => 0x%02x\n", data);
+				dev_battery_dbg(&client->dev, " => 0x%02x\n", data);
 		}
 	}
 }
@@ -67,12 +69,12 @@ static void smb347_test_read(struct i2c_client *client)
 	u32 addr = 0;
 	for (addr = 0; addr <= 0x0f; addr++) {
 		smb347_i2c_read(client, addr, &data);
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"smb347 addr : 0x%02x data : 0x%02x\n", addr, data);
 	}
 	for (addr = 0x30; addr <= 0x3f; addr++) {
 		smb347_i2c_read(client, addr, &data);
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"smb347 addr : 0x%02x data : 0x%02x\n", addr, data);
 	}
 }
@@ -103,10 +105,10 @@ static int smb347_read_reg(struct i2c_client *client, int reg)
 	ret = i2c_smbus_read_byte_data(client, reg);
 
 	if (ret < 0) {
-		pr_err("%s: err %d, try again!\n", __func__, ret);
+		pr_battery_err("%s: err %d, try again!\n", __func__, ret);
 		ret = i2c_smbus_read_byte_data(client, reg);
 		if (ret < 0)
-			pr_err("%s: err %d\n", __func__, ret);
+			pr_battery_err("%s: err %d\n", __func__, ret);
 	}
 
 	return ret;
@@ -122,19 +124,19 @@ static int smb347_get_charging_status(struct i2c_client *client)
 	u8 data_e = 0;
 
 	smb347_i2c_read(client, SMB347_STATUS_A, &data_a);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status A(0x%02x)\n", __func__, data_a);
 	smb347_i2c_read(client, SMB347_STATUS_B, &data_b);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status B(0x%02x)\n", __func__, data_b);
 	smb347_i2c_read(client, SMB347_STATUS_C, &data_c);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status C(0x%02x)\n", __func__, data_c);
 	smb347_i2c_read(client, SMB347_STATUS_D, &data_d);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status D(0x%02x)\n", __func__, data_d);
 	smb347_i2c_read(client, SMB347_STATUS_E, &data_e);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status E(0x%02x)\n", __func__, data_e);
 
 	/* At least one charge cycle terminated,
@@ -173,19 +175,19 @@ static int smb347_get_charging_health(struct i2c_client *client)
 	u8 data_e = 0;
 
 	smb347_i2c_read(client, SMB347_STATUS_A, &data_a);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status A(0x%02x)\n", __func__, data_a);
 	smb347_i2c_read(client, SMB347_STATUS_B, &data_b);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status B(0x%02x)\n", __func__, data_b);
 	smb347_i2c_read(client, SMB347_STATUS_C, &data_c);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status C(0x%02x)\n", __func__, data_c);
 	smb347_i2c_read(client, SMB347_STATUS_D, &data_d);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status D(0x%02x)\n", __func__, data_d);
 	smb347_i2c_read(client, SMB347_STATUS_E, &data_e);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status E(0x%02x)\n", __func__, data_e);
 
 	/* Is enabled ? */
@@ -203,15 +205,15 @@ static void smb347_allow_volatile_writes(struct i2c_client *client)
 	reg = SMB347_COMMAND_A;
 	val = smb347_i2c_read(client, reg, &data);
 	if ((val >= 0) && !(data & 0x80)) {
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : reg(0x%02x): 0x%02x", __func__, reg, data);
 		data |= (0x1 << 7);
 		if (smb347_i2c_write(client, reg, &data) < 0)
-			dev_err(&client->dev, "%s : error!\n", __func__);
+			dev_battery_err(&client->dev, "%s : error!\n", __func__);
 		val = smb347_i2c_read(client, reg, &data);
 		if (val >= 0) {
 			data = (u8) data;
-			dev_dbg(&client->dev, " => 0x%02x\n", data);
+			dev_battery_dbg(&client->dev, " => 0x%02x\n", data);
 		}
 	}
 }
@@ -321,7 +323,7 @@ static void smb347_charger_function_conrol(
 	u8 data;
 
 	if (charger->charging_current < 0) {
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : OTG is activated. Ignore command!\n", __func__);
 		return;
 	}
@@ -338,10 +340,10 @@ static void smb347_charger_function_conrol(
 			SMB347_COMMAND_B, 0x01);
 	} else {
 		/* Pre-charge curr 250mA */
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : fast charging current (%dmA)\n",
 			__func__, charger->charging_current);
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : termination current (%dmA)\n",
 			__func__, charger->pdata->charging_current[
 			charger->cable_type].full_check_current_1st);
@@ -365,7 +367,7 @@ static void smb347_charger_function_conrol(
 			SMB347_PIN_ENABLE_CONTROL, data);
 
 		/* Input current limit */
-		dev_dbg(&client->dev, "%s : input current (%dmA)\n",
+		dev_battery_dbg(&client->dev, "%s : input current (%dmA)\n",
 			__func__, charger->pdata->charging_current
 			[charger->cable_type].input_current_limit);
 		data = 0;
@@ -393,7 +395,7 @@ static void smb347_charger_function_conrol(
 				SMB347_VARIOUS_FUNCTIONS, 0x95);
 
 		/* Float voltage, Vprechg : 2.4V */
-		dev_dbg(&client->dev, "%s : float voltage (%dmV)\n",
+		dev_battery_dbg(&client->dev, "%s : float voltage (%dmV)\n",
 				__func__, charger->pdata->chg_float_voltage);
 		data = 0;
 		data |= smb347_get_float_voltage_data(
@@ -524,10 +526,10 @@ static int smb347_check_charging_status(struct i2c_client *client)
 	val = smb347_read_reg(client, reg);
 	if (val >= 0) {
 		data = (u8) val;
-		pr_debug("%s : reg (0x%x) = 0x%x\n", __func__, reg, data);
+		pr_battery_debug("%s : reg (0x%x) = 0x%x\n", __func__, reg, data);
 
 		ret = (data & (0x3 << 1)) >> 1;
-		pr_debug("%s : status = 0x%x\n", __func__, data);
+		pr_battery_debug("%s : status = 0x%x\n", __func__, data);
 	}
 
 	return ret;
@@ -574,7 +576,7 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 			val->intval = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 			break;
 		default:
-			pr_err("%s : get charge type error!\n", __func__);
+			pr_battery_err("%s : get charge type error!\n", __func__);
 			return -EINVAL;
 		}
 		break;
@@ -628,7 +630,7 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 				}
 		} else
 			val->intval = 0;
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : set-current(%dmA), current now(%dmA)\n",
 			__func__, charger->charging_current, val->intval);
 		break;
@@ -716,7 +718,7 @@ ssize_t sec_hal_chg_store_attrs(struct device *dev,
 			smb347_i2c_read(chg->client,
 				chg->reg_addr, &data);
 			chg->reg_data = data;
-			dev_dbg(dev, "%s: (read) addr = 0x%x, data = 0x%x\n",
+			dev_battery_dbg(dev, "%s: (read) addr = 0x%x, data = 0x%x\n",
 				__func__, chg->reg_addr, chg->reg_data);
 			ret = count;
 		}
@@ -724,7 +726,7 @@ ssize_t sec_hal_chg_store_attrs(struct device *dev,
 	case CHG_DATA:
 		if (sscanf(buf, "%x\n", &x) == 1) {
 			data = (u8)x;
-			dev_dbg(dev, "%s: (write) addr = 0x%x, data = 0x%x\n",
+			dev_battery_dbg(dev, "%s: (write) addr = 0x%x, data = 0x%x\n",
 				__func__, chg->reg_addr, data);
 			smb347_i2c_write(chg->client,
 				chg->reg_addr, &data);

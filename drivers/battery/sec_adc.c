@@ -11,6 +11,7 @@
  */
 
 #include <linux/battery/sec_adc.h>
+#include "debug.h"
 
 static struct iio_channel *temp_adc;
 
@@ -33,9 +34,9 @@ static int sec_bat_adc_ap_read(int channel)
 	case SEC_BAT_ADC_CHANNEL_TEMP_AMBIENT:
 		ret = iio_read_channel_raw(&temp_adc[0], &data);
 		if (ret < 0)
-			pr_info("read channel error[%d]\n", ret);
+			pr_battery_info("read channel error[%d]\n", ret);
 		else
-			pr_debug("TEMP ADC(%d)\n", data);
+			pr_battery_debug("TEMP ADC(%d)\n", data);
 		break;
 	case SEC_BAT_ADC_CHANNEL_FULL_CHECK:
 	case SEC_BAT_ADC_CHANNEL_VOLTAGE_NOW:
@@ -44,16 +45,16 @@ static int sec_bat_adc_ap_read(int channel)
 	case SEC_BAT_ADC_CHANNEL_CHG_TEMP:
 		ret = iio_read_channel_raw(&temp_adc[1], &data);
 		if (ret < 0)
-			pr_info("read channel error[%d]\n", ret);
+			pr_battery_info("read channel error[%d]\n", ret);
 		else
-			pr_debug("TEMP ADC(%d)\n", data);
+			pr_battery_debug("TEMP ADC(%d)\n", data);
 		break;
 	case SEC_BAT_ADC_CHANNEL_INBAT_VOLTAGE:
 		ret = iio_read_channel_raw(&temp_adc[2], &data);
 		if (ret < 0)
-			pr_info("read channel error[%d]\n", ret);
+			pr_battery_info("read channel error[%d]\n", ret);
 		else
-			pr_info("INBAT ADC(%d)\n", data);
+			pr_battery_info("INBAT ADC(%d)\n", data);
 		break;
 	default:
 		break;
@@ -161,7 +162,7 @@ int adc_read(struct sec_battery_info *battery, int channel)
 
 	adc = adc_read_type(battery, channel);
 
-	dev_dbg(battery->dev, "[%s]adc = %d\n", __func__, adc);
+	dev_battery_dbg(battery->dev, "[%s]adc = %d\n", __func__, adc);
 
 	return adc;
 }

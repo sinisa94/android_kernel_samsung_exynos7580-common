@@ -18,6 +18,7 @@
 #define DEBUG
 
 #include <linux/battery/sec_charger.h>
+#include "debug.h"
 
 static int bq24260_i2c_write(struct i2c_client *client,
 				int reg, u8 *buf)
@@ -25,7 +26,7 @@ static int bq24260_i2c_write(struct i2c_client *client,
 	int ret;
 	ret = i2c_smbus_write_i2c_block_data(client, reg, 1, buf);
 	if (ret < 0)
-		dev_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -35,7 +36,7 @@ static int bq24260_i2c_read(struct i2c_client *client,
 	int ret;
 	ret = i2c_smbus_read_i2c_block_data(client, reg, 1, buf);
 	if (ret < 0)
-		dev_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: Error(%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -54,16 +55,16 @@ static void bq24260_set_command(struct i2c_client *client,
 	u8 data = 0;
 	val = bq24260_i2c_read(client, reg, &data);
 	if (val >= 0) {
-		dev_dbg(&client->dev, "%s : reg(0x%02x): 0x%02x(0x%02x)",
+		dev_battery_dbg(&client->dev, "%s : reg(0x%02x): 0x%02x(0x%02x)",
 			__func__, reg, data, datum);
 		if (data != datum) {
 			data = datum;
 			if (bq24260_i2c_write(client, reg, &data) < 0)
-				dev_err(&client->dev,
+				dev_battery_err(&client->dev,
 					"%s : error!\n", __func__);
 			val = bq24260_i2c_read(client, reg, &data);
 			if (val >= 0)
-				dev_dbg(&client->dev, " => 0x%02x\n", data);
+				dev_battery_dbg(&client->dev, " => 0x%02x\n", data);
 		}
 	}
 }
@@ -74,7 +75,7 @@ static void bq24260_test_read(struct i2c_client *client)
 	u32 addr = 0;
 	for (addr = 0; addr <= 0x06; addr++) {
 		bq24260_i2c_read(client, addr, &data);
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"bq24260 addr : 0x%02x data : 0x%02x\n", addr, data);
 	}
 }
@@ -97,7 +98,7 @@ static int bq24260_get_charging_status(struct i2c_client *client)
 	u8 data = 0;
 
 	bq24260_i2c_read(client, BQ24260_STATUS, &data);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status(0x%02x)\n", __func__, data);
 
 	data = (data & 0x30);
@@ -126,7 +127,7 @@ static int bq24260_get_charging_health(struct i2c_client *client)
 	u8 data = 0;
 
 	bq24260_i2c_read(client, BQ24260_STATUS, &data);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s : charger status(0x%02x)\n", __func__, data);
 
 	if ((data & 0x30) == 0x30) {	/* check for fault */
@@ -214,7 +215,7 @@ static void bq24260_charger_function_conrol(
 	int full_check_type;
 	u8 data;
 	if (charger->charging_current < 0) {
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : OTG is activated. Ignore command!\n", __func__);
 		return;
 	}
@@ -251,7 +252,7 @@ static void bq24260_charger_function_conrol(
 			break;
 		}
 		/* Input current limit */
-		dev_dbg(&client->dev, "%s : input current (%dmA)\n",
+		dev_battery_dbg(&client->dev, "%s : input current (%dmA)\n",
 			__func__, charger->pdata->charging_current
 			[charger->cable_type].input_current_limit);
 		data &= 0x0F;
@@ -263,7 +264,7 @@ static void bq24260_charger_function_conrol(
 
 		data = 0x00;
 		/* Float voltage */
-		dev_dbg(&client->dev, "%s : float voltage (%dmV)\n",
+		dev_battery_dbg(&client->dev, "%s : float voltage (%dmV)\n",
 			__func__, charger->pdata->chg_float_voltage);
 		data |= bq24260_get_float_voltage_data(
 			charger->pdata->chg_float_voltage);
@@ -272,11 +273,11 @@ static void bq24260_charger_function_conrol(
 
 		data = 0x00;
 		/* Fast charge and Termination current */
-		dev_dbg(&client->dev, "%s : fast charging current (%dmA)\n",
+		dev_battery_dbg(&client->dev, "%s : fast charging current (%dmA)\n",
 				__func__, charger->charging_current);
 		data |= bq24260_get_fast_charging_current_data(
 			charger->charging_current);
-		dev_dbg(&client->dev, "%s : termination current (%dmA)\n",
+		dev_battery_dbg(&client->dev, "%s : termination current (%dmA)\n",
 			__func__, charger->pdata->charging_current[
 			charger->cable_type].full_check_current_1st >= 300 ?
 			300 : charger->pdata->charging_current[
@@ -304,14 +305,14 @@ static void bq24260_charger_otg_conrol(
 	u8 data;
 	if (charger->cable_type ==
 		POWER_SUPPLY_TYPE_BATTERY) {
-		dev_info(&client->dev, "%s : turn off OTG\n", __func__);
+		dev_battery_info(&client->dev, "%s : turn off OTG\n", __func__);
 		/* turn off OTG */
 		bq24260_i2c_read(client, BQ24260_STATUS, &data);
 		data &= 0xbf;
 		bq24260_set_command(client,
 			BQ24260_STATUS, data);
 	} else {
-		dev_info(&client->dev, "%s : turn on OTG\n", __func__);
+		dev_battery_info(&client->dev, "%s : turn on OTG\n", __func__);
 		/* turn on OTG */
 		bq24260_i2c_read(client, BQ24260_STATUS, &data);
 		data |= 0x40;
@@ -380,7 +381,7 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 			val->intval = (data >> 3) * 100 + 500;
 		} else
 			val->intval = 0;
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : set-current(%dmA), current now(%dmA)\n",
 			__func__, charger->charging_current, val->intval);
 		break;
@@ -402,7 +403,7 @@ bool sec_hal_chg_set_property(struct i2c_client *client,
 		if (charger->pdata->chg_gpio_en) {
 			if (gpio_request(charger->pdata->chg_gpio_en,
 				"CHG_EN") < 0) {
-				dev_err(&client->dev,
+				dev_battery_err(&client->dev,
 					"failed to request vbus_in gpio\n");
 				break;
 			}
@@ -492,7 +493,7 @@ ssize_t sec_hal_chg_store_attrs(struct device *dev,
 			bq24260_i2c_read(chg->client,
 				chg->reg_addr, &data);
 			chg->reg_data = data;
-			dev_dbg(dev, "%s: (read) addr = 0x%x, data = 0x%x\n",
+			dev_battery_dbg(dev, "%s: (read) addr = 0x%x, data = 0x%x\n",
 				__func__, chg->reg_addr, chg->reg_data);
 			ret = count;
 		}
@@ -500,7 +501,7 @@ ssize_t sec_hal_chg_store_attrs(struct device *dev,
 	case CHG_DATA:
 		if (sscanf(buf, "%x\n", &x) == 1) {
 			data = (u8)x;
-			dev_dbg(dev, "%s: (write) addr = 0x%x, data = 0x%x\n",
+			dev_battery_dbg(dev, "%s: (write) addr = 0x%x, data = 0x%x\n",
 				__func__, chg->reg_addr, data);
 			bq24260_i2c_write(chg->client,
 				chg->reg_addr, &data);

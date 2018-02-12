@@ -11,6 +11,7 @@
  */
 
 #include <linux/battery/sec_charger.h>
+#include "debug.h"
 
 static enum power_supply_property sec_charger_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
@@ -91,7 +92,7 @@ static void sec_chg_isr_work(struct work_struct *work)
 	union power_supply_propval val;
 	int full_check_type;
 
-	dev_info(&charger->client->dev,
+	dev_battery_info(&charger->client->dev,
 		"%s: Charger Interrupt\n", __func__);
 
 	psy_do_property("battery", get,
@@ -108,30 +109,30 @@ static void sec_chg_isr_work(struct work_struct *work)
 
 		switch (val.intval) {
 		case POWER_SUPPLY_STATUS_DISCHARGING:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Interrupted but Discharging\n", __func__);
 			break;
 
 		case POWER_SUPPLY_STATUS_NOT_CHARGING:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Interrupted but NOT Charging\n", __func__);
 			break;
 
 		case POWER_SUPPLY_STATUS_FULL:
-			dev_info(&charger->client->dev,
+			dev_battery_info(&charger->client->dev,
 				"%s: Interrupted by Full\n", __func__);
 			psy_do_property("battery", set,
 				POWER_SUPPLY_PROP_STATUS, val);
 			break;
 
 		case POWER_SUPPLY_STATUS_CHARGING:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Interrupted but Charging\n", __func__);
 			break;
 
 		case POWER_SUPPLY_STATUS_UNKNOWN:
 		default:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Invalid Charger Status\n", __func__);
 			break;
 		}
@@ -146,36 +147,36 @@ static void sec_chg_isr_work(struct work_struct *work)
 		switch (val.intval) {
 		case POWER_SUPPLY_HEALTH_OVERHEAT:
 		case POWER_SUPPLY_HEALTH_COLD:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Interrupted but Hot/Cold\n", __func__);
 			break;
 
 		case POWER_SUPPLY_HEALTH_DEAD:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Interrupted but Dead\n", __func__);
 			break;
 
 		case POWER_SUPPLY_HEALTH_OVERVOLTAGE:
 		case POWER_SUPPLY_HEALTH_UNDERVOLTAGE:
-			dev_info(&charger->client->dev,
+			dev_battery_info(&charger->client->dev,
 				"%s: Interrupted by OVP/UVLO\n", __func__);
 			psy_do_property("battery", set,
 				POWER_SUPPLY_PROP_HEALTH, val);
 			break;
 
 		case POWER_SUPPLY_HEALTH_UNSPEC_FAILURE:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Interrupted but Unspec\n", __func__);
 			break;
 
 		case POWER_SUPPLY_HEALTH_GOOD:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Interrupted but Good\n", __func__);
 			break;
 
 		case POWER_SUPPLY_HEALTH_UNKNOWN:
 		default:
-			dev_err(&charger->client->dev,
+			dev_battery_err(&charger->client->dev,
 				"%s: Invalid Charger Health\n", __func__);
 			break;
 		}
@@ -203,7 +204,7 @@ static int sec_chg_create_attrs(struct device *dev)
 	goto create_attrs_succeed;
 
 create_attrs_failed:
-	dev_err(dev, "%s: failed (%d)\n", __func__, rc);
+	dev_battery_err(dev, "%s: failed (%d)\n", __func__, rc);
 	while (i--)
 		device_remove_file(dev, &sec_charger_attrs[i]);
 create_attrs_succeed:
@@ -259,7 +260,7 @@ static int __devinit sec_charger_probe(
 	struct sec_charger_info *charger;
 	int ret = 0;
 
-	dev_dbg(&client->dev,
+	dev_battery_dbg(&client->dev,
 		"%s: SEC Charger Driver Loading\n", __func__);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
@@ -282,20 +283,20 @@ static int __devinit sec_charger_probe(
 	charger->psy_chg.num_properties	= ARRAY_SIZE(sec_charger_props);
 
 	if (!charger->pdata->chg_gpio_init()) {
-		dev_err(&client->dev,
+		dev_battery_err(&client->dev,
 			"%s: Failed to Initialize GPIO\n", __func__);
 		goto err_free;
 	}
 
 	if (!sec_hal_chg_init(charger->client)) {
-		dev_err(&client->dev,
+		dev_battery_err(&client->dev,
 			"%s: Failed to Initialize Charger\n", __func__);
 		goto err_free;
 	}
 
 	ret = power_supply_register(&client->dev, &charger->psy_chg);
 	if (ret) {
-		dev_err(&client->dev,
+		dev_battery_err(&client->dev,
 			"%s: Failed to Register psy_chg\n", __func__);
 		goto err_free;
 	}
@@ -309,26 +310,26 @@ static int __devinit sec_charger_probe(
 				charger->pdata->chg_irq_attr,
 				"charger-irq", charger);
 		if (ret) {
-			dev_err(&client->dev,
+			dev_battery_err(&client->dev,
 				"%s: Failed to Reqeust IRQ\n", __func__);
 			goto err_supply_unreg;
 		}
 
 			ret = enable_irq_wake(charger->pdata->chg_irq);
 			if (ret < 0)
-				dev_err(&client->dev,
+				dev_battery_err(&client->dev,
 					"%s: Failed to Enable Wakeup Source(%d)\n",
 					__func__, ret);
 		}
 
 	ret = sec_chg_create_attrs(charger->psy_chg.dev);
 	if (ret) {
-		dev_err(&client->dev,
+		dev_battery_err(&client->dev,
 			"%s : Failed to create_attrs\n", __func__);
 		goto err_req_irq;
 	}
 
-	dev_dbg(&client->dev,
+	dev_battery_dbg(&client->dev,
 		"%s: SEC Charger Driver Loaded\n", __func__);
 	return 0;
 
@@ -353,7 +354,7 @@ static int sec_charger_suspend(struct i2c_client *client,
 				pm_message_t state)
 {
 	if (!sec_hal_chg_suspend(client))
-		dev_err(&client->dev,
+		dev_battery_err(&client->dev,
 			"%s: Failed to Suspend Charger\n", __func__);
 
 	return 0;
@@ -362,7 +363,7 @@ static int sec_charger_suspend(struct i2c_client *client,
 static int sec_charger_resume(struct i2c_client *client)
 {
 	if (!sec_hal_chg_resume(client))
-		dev_err(&client->dev,
+		dev_battery_err(&client->dev,
 			"%s: Failed to Resume Charger\n", __func__);
 
 	return 0;

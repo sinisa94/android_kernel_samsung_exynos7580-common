@@ -16,6 +16,7 @@
  */
 
 #include <linux/battery/sec_battery.h>
+#include "debug.h"
 
 static struct sec_battery_info *info;
 	

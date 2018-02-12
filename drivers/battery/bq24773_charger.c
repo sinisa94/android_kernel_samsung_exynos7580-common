@@ -19,6 +19,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/battery/charger/bq24773_charger.h>
+#include "debug.h"
 
 #define ENABLE 1
 #define DISABLE 0
@@ -51,7 +52,7 @@ int bq24773_read_reg(struct i2c_client *i2c, u8 reg, u8 *dest)
 	ret = i2c_smbus_read_byte_data(i2c, reg);
 	mutex_unlock(&bq24773->i2c_lock);
 	if (ret < 0) {
-		pr_info("%s reg(0x%x), ret(%d)\n", __func__, reg, ret);
+		pr_battery_info("%s reg(0x%x), ret(%d)\n", __func__, reg, ret);
 		return ret;
 	}
 
@@ -83,7 +84,7 @@ int bq24773_write_reg(struct i2c_client *i2c, u8 reg, u8 value)
 	ret = i2c_smbus_write_byte_data(i2c, reg, value);
 	mutex_unlock(&bq24773->i2c_lock);
 	if (ret < 0)
-		pr_info("%s reg(0x%x), ret(%d)\n",
+		pr_battery_info("%s reg(0x%x), ret(%d)\n",
 			__func__, reg, ret);
 
 	return ret;
@@ -123,11 +124,11 @@ static void bq24773_test_read(struct bq24773_charger *charger)
 	u8 reg;
 	u8 reg_data;
 
-	pr_info("bq24773 CHARGER IC :\n");
-	pr_info("===================\n");
+	pr_battery_info("bq24773 CHARGER IC :\n");
+	pr_battery_info("===================\n");
 	for (reg = 0x00; reg <= 0x10; reg++) {
 		bq24773_read_reg(charger->i2c, reg, &reg_data);
-		pr_info("0x%02x:\t0x%02x\n", reg, reg_data);
+		pr_battery_info("0x%02x:\t0x%02x\n", reg, reg_data);
 	}
 
 }
@@ -161,9 +162,9 @@ static void bq24773_set_charge_current(struct bq24773_charger *charger, int char
 	u16 data;
 
 	charging_current = charging_current / 64;
-	pr_info("%s %d \n", __func__, charging_current);
+	pr_battery_info("%s %d \n", __func__, charging_current);
 	data = (charging_current << 6);
-	pr_info("%s :::: 0x%02x:\t0x%04x \n", __func__, data, charging_current);
+	pr_battery_info("%s :::: 0x%02x:\t0x%04x \n", __func__, data, charging_current);
 
 	bq24773_write_word(charger->i2c, BQ24773_CHG_CURR_1, data);
 }
@@ -172,7 +173,7 @@ static void bq24773_set_input_current(struct bq24773_charger *charger, int input
 {
 	u16 data;
 
-	pr_info ("%s : SET INPUT CURRENT(%d)\n", __func__, input_current);
+	pr_battery_info ("%s : SET INPUT CURRENT(%d)\n", __func__, input_current);
 
 	data = input_current / 64;
 	bq24773_write_word(charger->i2c, BQ24773_INPUT_CURR, data);
@@ -251,7 +252,7 @@ static void bq24773_charger_function_control(struct bq24773_charger *charger)
 		}
 #endif
 
-		pr_info ("%s : AGE_FORECAST(%d) FLOAT_VOLTAGE(%d) INPUT_CURR(%d) CHARGING_CURR(%d)\n",
+		pr_battery_info ("%s : AGE_FORECAST(%d) FLOAT_VOLTAGE(%d) INPUT_CURR(%d) CHARGING_CURR(%d)\n",
 			 __func__, value.intval, charger->chg_float_voltage, charger->input_current,
 			 charger->charging_current);
 	}
@@ -395,17 +396,17 @@ static int bq24773_otg_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (val->intval) {
-			pr_info("%s : OTG EN\n", __func__);
+			pr_battery_info("%s : OTG EN\n", __func__);
 			gpio_set_value(charger->otg_en, 1);
 			if (charger->otg_en2)
 				gpio_set_value(charger->otg_en2, 1);
 		} else {
-			pr_info("%s : OTG DISEN\n", __func__);
+			pr_battery_info("%s : OTG DISEN\n", __func__);
 			gpio_set_value(charger->otg_en, 0);
 			if (charger->otg_en2)
 				gpio_set_value(charger->otg_en2, 0);
 		}
-		pr_info("%s : OTG SET(%d)\n", __func__, gpio_get_value(charger->otg_en));
+		pr_battery_info("%s : OTG SET(%d)\n", __func__, gpio_get_value(charger->otg_en));
 		break;
 	default:
 		return -EINVAL;
@@ -454,35 +455,35 @@ static int bq24773_charger_parse_dt(struct bq24773_charger *charger)
 	const u32 *p;
 
 	if (np == NULL) {
-		pr_err("%s np NULL\n", __func__);
+		pr_battery_err("%s np NULL\n", __func__);
 	} else {
 		ret = of_property_read_u32(np, "battery,chg_float_voltage",
 					   &pdata->chg_float_voltage);
 		charger->otg_en = of_get_named_gpio(np, "charger,otg_en", 0);
 		if (charger->otg_en < 0) {
 			charger->otg_en = -1;
-			pr_info("%s: No use gpios for otg accessory power\n", __func__);
+			pr_battery_info("%s: No use gpios for otg accessory power\n", __func__);
 		} else {
-			pr_info("%s, gpios_otg_power  %d\n", __func__, charger->otg_en);
+			pr_battery_info("%s, gpios_otg_power  %d\n", __func__, charger->otg_en);
 		}
 
 		charger->otg_en2 = of_get_named_gpio(np, "charger,otg_en2", 0);
 		if (charger->otg_en2 < 0) {
 			charger->otg_en2 = -1;
-			pr_info("%s: No use gpios for otg accessory power\n", __func__);
+			pr_battery_info("%s: No use gpios for otg accessory power\n", __func__);
 		} else {
-			pr_info("%s, gpios_otg_power  %d\n", __func__, charger->otg_en2);
+			pr_battery_info("%s, gpios_otg_power  %d\n", __func__, charger->otg_en2);
 		}
 	}
 
 	np = of_find_node_by_name(NULL, "battery");
 	if (!np) {
-		pr_err("%s np NULL\n", __func__);
+		pr_battery_err("%s np NULL\n", __func__);
 	} else {
 		ret = of_property_read_u32(np, "battery,full_check_type_2nd",
 					&pdata->full_check_type_2nd);
 		if (ret)
-			pr_info("%s : Full check type 2nd is Empty\n", __func__);
+			pr_battery_info("%s : Full check type 2nd is Empty\n", __func__);
 
 		p = of_get_property(np, "battery,input_current_limit", &len);
 		if (!p)
@@ -520,7 +521,7 @@ static int __devinit bq24773_charger_probe(struct i2c_client *client,
 
 	int ret = 0;
 
-	pr_info("%s: bq24773 Charger Driver Loading\n", __func__);
+	pr_battery_info("%s: bq24773 Charger Driver Loading\n", __func__);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
 		return -EIO;
@@ -538,14 +539,14 @@ static int __devinit bq24773_charger_probe(struct i2c_client *client,
 		charger->pdata = devm_kzalloc(&client->dev, sizeof(*(charger->pdata)),
 					      GFP_KERNEL);
 		if (!charger->pdata) {
-			dev_err(&client->dev, "Failed to allocate memory\n");
+			dev_battery_err(&client->dev, "Failed to allocate memory\n");
 			ret = -ENOMEM;
 			goto err_parse_dt_nomem;
 		}
 #if defined(CONFIG_OF)
 		ret = bq24773_charger_parse_dt(charger);
 		if (ret < 0) {
-			pr_err("%s not found charger dt! ret[%d]\n",
+			pr_battery_err("%s not found charger dt! ret[%d]\n",
 			       __func__, ret);
 			goto err_parse_dt;
 		}
@@ -574,34 +575,34 @@ static int __devinit bq24773_charger_probe(struct i2c_client *client,
 
 	ret = power_supply_register(&client->dev, &charger->psy_chg);
 	if (ret) {
-		pr_err("%s: Failed to Register psy_chg\n", __func__);
+		pr_battery_err("%s: Failed to Register psy_chg\n", __func__);
 		goto err_data_free;
 	}
 	ret = power_supply_register(&client->dev, &charger->psy_otg);
 	if (ret) {
-		pr_err("%s: Failed to Register psy_otg\n", __func__);
+		pr_battery_err("%s: Failed to Register psy_otg\n", __func__);
 		goto err_otg_psy;
 	}
 
 	if (charger->otg_en > 0) {
 		ret = gpio_request(charger->otg_en, "OTG_EN");
-		pr_info("%s[AFTER] : OTG_EN(%d)\n", __func__, charger->otg_en);
+		pr_battery_info("%s[AFTER] : OTG_EN(%d)\n", __func__, charger->otg_en);
 		if (ret) {
-			pr_err("failed to request GPIO %u\n", charger->otg_en);
+			pr_battery_err("failed to request GPIO %u\n", charger->otg_en);
 			goto err_otg_set;
 		}
 	}
 
 	if (charger->otg_en2 > 0) {
 		ret = gpio_request(charger->otg_en2, "OTG_EN2");
-		pr_info("%s[AFTER] : OTG_EN(%d)\n", __func__, charger->otg_en2);
+		pr_battery_info("%s[AFTER] : OTG_EN(%d)\n", __func__, charger->otg_en2);
 		if (ret) {
-			pr_err("failed to request GPIO %u\n", charger->otg_en2);
+			pr_battery_err("failed to request GPIO %u\n", charger->otg_en2);
 			goto err_otg2_set;
 		}
 	}
 
-	pr_info("%s: bq24773 Charger Driver Loaded\n", __func__);
+	pr_battery_info("%s: bq24773 Charger Driver Loaded\n", __func__);
 
 	return 0;
 
@@ -630,9 +631,9 @@ static void bq24773_charger_shutdown(struct i2c_client *client)
 {
 	struct bq24773_charger *charger = i2c_get_clientdata(client);
 
-	pr_info("%s: bq24773 Charger driver shutdown\n", __func__);
+	pr_battery_info("%s: bq24773 Charger driver shutdown\n", __func__);
 	if (!charger->i2c) {
-		pr_err("%s: no bq24773 i2c client\n", __func__);
+		pr_battery_err("%s: no bq24773 i2c client\n", __func__);
 		return;
 	}
 }
@@ -684,7 +685,7 @@ static struct i2c_driver bq24773_charger_driver = {
 
 static int __init bq24773_charger_init(void)
 {
-	pr_info("%s : \n", __func__);
+	pr_battery_info("%s : \n", __func__);
 	return i2c_add_driver(&bq24773_charger_driver);
 }
 

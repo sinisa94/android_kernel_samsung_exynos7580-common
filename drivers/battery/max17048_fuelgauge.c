@@ -18,6 +18,7 @@
 
 #include <linux/battery/sec_fuelgauge.h>
 #include <linux/sec_batt.h>
+#include "debug.h"
 
 #if 0
 static int max17048_write_reg(struct i2c_client *client, int reg, u8 value)
@@ -27,7 +28,7 @@ static int max17048_write_reg(struct i2c_client *client, int reg, u8 value)
 	ret = i2c_smbus_write_byte_data(client, reg, value);
 
 	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return ret;
 }
@@ -40,7 +41,7 @@ static int max17048_read_reg(struct i2c_client *client, int reg)
 	ret = i2c_smbus_read_byte_data(client, reg);
 
 	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return ret;
 }
@@ -51,7 +52,7 @@ static int max17048_read_word(struct i2c_client *client, int reg)
 
 	ret = i2c_smbus_read_word_data(client, reg);
 	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return ret;
 }
@@ -62,7 +63,7 @@ static int max17048_write_word(struct i2c_client *client, int reg, u16 buf)
 
 	ret = i2c_smbus_write_word_data(client, reg, buf);
 	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		dev_battery_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return ret;
 }
@@ -94,7 +95,7 @@ static int max17048_get_vcell(struct i2c_client *client)
 	temp = ((w_data & 0xFFF0) >> 4) * 1250;
 	vcell = temp / 1000;
 
-	dev_dbg(&client->dev,
+	dev_battery_dbg(&client->dev,
 		"%s : vcell (%d)\n", __func__, vcell);
 
 	return vcell;
@@ -146,7 +147,7 @@ static int max17048_get_ocv(struct i2c_client *client)
 	cmd = swab16(0x0000);
 	max17048_write_word(client, 0x3E, cmd);
 
-	dev_dbg(&client->dev,
+	dev_battery_dbg(&client->dev,
 		"%s : ocv (%d)\n", __func__, ocv);
 
 	return ocv;
@@ -178,7 +179,7 @@ static int max17048_get_soc(struct i2c_client *client)
 		soc = (data[0] * 100) + (data[1] * 100 / 256);
 	}
 
-	dev_dbg(&client->dev,
+	dev_battery_dbg(&client->dev,
 		"%s : raw capacity (%d), data(0x%04x)\n",
 		__func__, soc, (data[0]<<8) | data[1]);
 
@@ -246,7 +247,7 @@ static int max17048_get_current_average(struct i2c_client *client)
 	    (check_discharge < 0) &&
 	    (((value_bat.intval == POWER_SUPPLY_HEALTH_OVERHEAT) ||
 	      (value_bat.intval == POWER_SUPPLY_HEALTH_COLD)))) {
-		pr_info("%s: SOC(%d), Vnow(%d), Inow(%d)\n",
+		pr_battery_info("%s: SOC(%d), Vnow(%d), Inow(%d)\n",
 			__func__, soc, vcell, value_chg.intval);
 		curr_avg = -1;
 	} else {
@@ -274,7 +275,7 @@ static void max17048_get_version(struct i2c_client *client)
 
 	w_data = swab16(temp);
 
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"MAX17048 Fuel-Gauge Ver 0x%04x\n", w_data);
 }
 
@@ -287,7 +288,7 @@ static u16 max17048_get_rcomp(struct i2c_client *client)
 
 	w_data = swab16(temp);
 
-	dev_dbg(&client->dev,
+	dev_battery_dbg(&client->dev,
 		"%s : current rcomp = 0x%04x\n",
 		__func__, w_data);
 
@@ -340,7 +341,7 @@ static void max17048_rcomp_update(struct i2c_client *client, int temp)
 	new_rcomp |= (rcomp_current & 0xff);
 
 	if (rcomp_current != new_rcomp) {
-		dev_dbg(&client->dev,
+		dev_battery_dbg(&client->dev,
 			"%s : RCOMP 0x%04x -> 0x%04x (0x%02x)\n",
 			__func__, rcomp_current, new_rcomp,
 			new_rcomp >> 8);
@@ -357,43 +358,43 @@ static int max17048_parse_dt(struct device *dev,
 	int value;
 
 	if (np == NULL) {
-		pr_err("%s np NULL\n", __func__);
+		pr_battery_err("%s np NULL\n", __func__);
 	} else {
 		ret = of_property_read_u32(np, "fuelgauge,rcomp0",
 					   &value);
-		pr_err("%s value %d\n",
+		pr_battery_err("%s value %d\n",
 		       __func__, value);
 		get_battery_data(fuelgauge).RCOMP0 = (u8)value;
 		if (ret < 0)
-			pr_err("%s error reading rcomp0 %d\n",
+			pr_battery_err("%s error reading rcomp0 %d\n",
 			       __func__, ret);
 		ret = of_property_read_u32(np, "fuelgauge,rcomp_charging",
 					   &value);
-		pr_err("%s value %d\n",
+		pr_battery_err("%s value %d\n",
 		       __func__, value);
 		get_battery_data(fuelgauge).RCOMP_charging = (u8)value;
 		if (ret < 0)
-			pr_err("%s error reading rcomp_charging %d\n",
+			pr_battery_err("%s error reading rcomp_charging %d\n",
 			       __func__, ret);
 		ret = of_property_read_u32(np, "fuelgauge,temp_cohot",
 				   &get_battery_data(fuelgauge).temp_cohot);
 		if (ret < 0)
-			pr_err("%s error reading temp_cohot %d\n",
+			pr_battery_err("%s error reading temp_cohot %d\n",
 			       __func__, ret);
 		ret = of_property_read_u32(np, "fuelgauge,temp_cocold",
 				   &get_battery_data(fuelgauge).temp_cocold);
 		if (ret < 0)
-			pr_err("%s error reading temp_cocold %d\n",
+			pr_battery_err("%s error reading temp_cocold %d\n",
 			       __func__, ret);
 		get_battery_data(fuelgauge).is_using_model_data = of_property_read_bool(np,
 				"fuelgauge,is_using_model_data");
 		ret = of_property_read_string(np, "fuelgauge,type_str",
 				(const char **)&get_battery_data(fuelgauge).type_str);
 		if (ret < 0)
-			pr_err("%s error reading temp_cocold %d\n",
+			pr_battery_err("%s error reading temp_cocold %d\n",
 			       __func__, ret);
 
-		pr_info("%s RCOMP0: 0x%x, RCOMP_charging: 0x%x, temp_cohot: %d,"
+		pr_battery_info("%s RCOMP0: 0x%x, RCOMP_charging: 0x%x, temp_cohot: %d,"
 			"temp_cocold: %d, is_using_model_data: %d, "
 			"type_str: %s,\n", __func__,
 			get_battery_data(fuelgauge).RCOMP0,
@@ -438,12 +439,12 @@ bool sec_hal_fg_init(struct i2c_client *client)
 	error = max17048_parse_dt(&client->dev, fuelgauge);
 
 	if (error) {
-		dev_err(&client->dev,
+		dev_battery_err(&client->dev,
 			"%s : Failed to get max17048 fuel_init\n", __func__);
 		return false;
 	}
 #endif
-	pr_info("%s\n", __func__);
+	pr_battery_info("%s\n", __func__);
 
 	max17048_get_version(client);
 
@@ -470,7 +471,7 @@ bool sec_hal_fg_fuelalert_init(struct i2c_client *client, int soc)
 	temp &= 0xff00;
 	temp += data;
 
-	dev_dbg(&client->dev,
+	dev_battery_dbg(&client->dev,
 		"%s : new rcomp = 0x%04x\n",
 		__func__, temp);
 
@@ -651,7 +652,7 @@ ssize_t sec_hal_fg_store_attrs(struct device *dev,
 			fg->reg_data[0] = (data & 0xff00) >> 8;
 			fg->reg_data[1] = (data & 0x00ff);
 
-			dev_dbg(&fg->client->dev,
+			dev_battery_dbg(&fg->client->dev,
 				"%s: (read) addr = 0x%x, data = 0x%02x%02x\n",
 				 __func__, fg->reg_addr,
 				 fg->reg_data[1], fg->reg_data[0]);
@@ -660,7 +661,7 @@ ssize_t sec_hal_fg_store_attrs(struct device *dev,
 		break;
 	case FG_DATA:
 		if (sscanf(buf, "%x\n", &x) == 1) {
-			dev_dbg(&fg->client->dev,
+			dev_battery_dbg(&fg->client->dev,
 				"%s: (write) addr = 0x%x, data = 0x%04x\n",
 				__func__, fg->reg_addr, x);
 			i2c_smbus_write_word_data(fg->client,

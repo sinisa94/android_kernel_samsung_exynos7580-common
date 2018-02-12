@@ -21,6 +21,7 @@
 #include <linux/fs.h>
 #include <linux/math64.h>
 #include <linux/compiler.h>
+#include "debug.h"
 
 #define FG_DET_BAT_PRESENT 1
 
@@ -76,7 +77,7 @@ static int32_t sm5703_fg_i2c_read_word(struct i2c_client *client,
 	uint16_t data = 0;
 	int ret;
 	ret = sm5703_fg_read_device(client, reg_addr, 2, &data);
-	/* dev_dbg(&client->dev, "%s: ret = %d, addr = 0x%x, data = 0x%x\n",
+	/* dev_battery_dbg(&client->dev, "%s: ret = %d, addr = 0x%x, data = 0x%x\n",
 			__func__, ret, reg_addr, data); */
 
 	if (ret < 0)
@@ -98,7 +99,7 @@ static int32_t sm5703_fg_i2c_write_word(struct i2c_client *client,
 	ret = i2c_smbus_write_i2c_block_data(client, reg_addr,
 		2, (uint8_t *)&data);
 
-	/* dev_dbg(&client->dev, "%s: ret = %d, addr = 0x%x, data = 0x%x\n",
+	/* dev_battery_dbg(&client->dev, "%s: ret = %d, addr = 0x%x, data = 0x%x\n",
 			__func__, ret, reg_addr, data);
 	*/
 
@@ -108,7 +109,7 @@ static int32_t sm5703_fg_i2c_write_word(struct i2c_client *client,
 #if 0
 static void sm5703_pr_ver_info(struct i2c_client *client)
 {
-	dev_info(&client->dev, "SM5703 Fuel-Gauge Ver %s\n", FG_DRIVER_VER);
+	dev_battery_info(&client->dev, "SM5703 Fuel-Gauge Ver %s\n", FG_DRIVER_VER);
 }
 #endif
 
@@ -117,54 +118,54 @@ static void sm5703_fg_test_read(struct i2c_client *client)
 	int ret, ret1, ret2, ret3, ret4;
 
 	ret = sm5703_fg_i2c_read_word(client, 0x30);
-	dev_info(&client->dev, "%s: sm5703 FG 0x30 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x30 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x31);
-	dev_info(&client->dev, "%s: sm5703 FG 0x31 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x31 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x32);
-	dev_info(&client->dev, "%s: sm5703 FG 0x32 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x32 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x33);
-	dev_info(&client->dev, "%s: sm5703 FG 0x33 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x33 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x34);
-	dev_info(&client->dev, "%s: sm5703 FG 0x34 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x34 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x35);
-	dev_info(&client->dev, "%s: sm5703 FG 0x35 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x35 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x36);
-	dev_info(&client->dev, "%s: sm5703 FG 0x36 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x36 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x37);
-	dev_info(&client->dev, "%s: sm5703 FG 0x37 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x37 = 0x%x \n", __func__, ret);
 
 	ret = sm5703_fg_i2c_read_word(client, 0x40);
-	dev_info(&client->dev, "%s: sm5703 FG 0x40 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x40 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x41);
-	dev_info(&client->dev, "%s: sm5703 FG 0x41 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x41 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x42);
-	dev_info(&client->dev, "%s: sm5703 FG 0x42 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x42 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(client, 0x43);
-	dev_info(&client->dev, "%s: sm5703 FG 0x43 = 0x%x \n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: sm5703 FG 0x43 = 0x%x \n", __func__, ret);
 
 	ret1 = sm5703_fg_i2c_read_word(client, 0xAC);
 	ret2 = sm5703_fg_i2c_read_word(client, 0xAD);
 	ret3 = sm5703_fg_i2c_read_word(client, 0xAE);
 	ret4 = sm5703_fg_i2c_read_word(client, 0xAF);
-	pr_info("0xAC=0x%04x, 0xAD=0x%04x, 0xAE=0x%04x, 0xAF=0x%04x \n", ret1, ret2, ret3, ret4);
+	pr_battery_info("0xAC=0x%04x, 0xAD=0x%04x, 0xAE=0x%04x, 0xAF=0x%04x \n", ret1, ret2, ret3, ret4);
 
 	ret1 = sm5703_fg_i2c_read_word(client, 0xBC);
 	ret2 = sm5703_fg_i2c_read_word(client, 0xBD);
 	ret3 = sm5703_fg_i2c_read_word(client, 0xBE);
 	ret4 = sm5703_fg_i2c_read_word(client, 0xBF);
-	pr_info("0xBC=0x%04x, 0xBD=0x%04x, 0xBE=0x%04x, 0xBF=0x%04x \n", ret1, ret2, ret3, ret4);
+	pr_battery_info("0xBC=0x%04x, 0xBD=0x%04x, 0xBE=0x%04x, 0xBF=0x%04x \n", ret1, ret2, ret3, ret4);
 
 	ret1 = sm5703_fg_i2c_read_word(client, 0xCC);
 	ret2 = sm5703_fg_i2c_read_word(client, 0xCD);
 	ret3 = sm5703_fg_i2c_read_word(client, 0xCE);
 	ret4 = sm5703_fg_i2c_read_word(client, 0xCF);
-	pr_info("0xCC=0x%04x, 0xCD=0x%04x, 0xCE=0x%04x, 0xCF=0x%04x \n", ret1, ret2, ret3, ret4);
+	pr_battery_info("0xCC=0x%04x, 0xCD=0x%04x, 0xCE=0x%04x, 0xCF=0x%04x \n", ret1, ret2, ret3, ret4);
 
 	ret1 = sm5703_fg_i2c_read_word(client, 0x85);
 	ret2 = sm5703_fg_i2c_read_word(client, 0x86);
 	ret3 = sm5703_fg_i2c_read_word(client, 0x87);
 	ret4 = sm5703_fg_i2c_read_word(client, 0x28);
-	pr_info("0x85=0x%04x, 0x86=0x%04x, 0x87=0x%04x, 0x28=0x%04x \n", ret1, ret2, ret3, ret4);
+	pr_battery_info("0x85=0x%04x, 0x86=0x%04x, 0x87=0x%04x, 0x28=0x%04x \n", ret1, ret2, ret3, ret4);
 }
 
 static int sm5703_get_temperature(struct sm5703_fuelgauge_data *fuelgauge)
@@ -174,7 +175,7 @@ static int sm5703_get_temperature(struct sm5703_fuelgauge_data *fuelgauge)
 	int temp;/* = 250; 250 means 25.0oC*/
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_TEMPERATURE);
 	if (ret<0) {
-		pr_err("%s: read temp reg fail", __func__);
+		pr_battery_err("%s: read temp reg fail", __func__);
 		temp = 0;
 	} else {
 		/* integer bit */
@@ -187,7 +188,7 @@ static int sm5703_get_temperature(struct sm5703_fuelgauge_data *fuelgauge)
 	}
 	fuelgauge->info.temperature = temp;
 
-	dev_info(&fuelgauge->i2c->dev,
+	dev_battery_info(&fuelgauge->i2c->dev,
 		"%s: read = 0x%x, temperature = %d\n", __func__, ret, temp);
 
 	return temp;
@@ -199,7 +200,7 @@ static unsigned int sm5703_get_ocv(struct sm5703_fuelgauge_data *fuelgauge)
 	unsigned int ocv;/* = 3500; 3500 means 3500mV */
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_OCV);
 	if (ret<0) {
-		pr_err("%s: read ocv reg fail\n", __func__);
+		pr_battery_err("%s: read ocv reg fail\n", __func__);
 		ocv = 4000;
 	} else {
 		/* integer bit */
@@ -210,7 +211,7 @@ static unsigned int sm5703_get_ocv(struct sm5703_fuelgauge_data *fuelgauge)
 
 	fuelgauge->info.batt_ocv = ocv;
 
-	dev_info(&fuelgauge->i2c->dev, "%s: read = 0x%x, ocv = %d\n", __func__, ret, ocv);
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: read = 0x%x, ocv = %d\n", __func__, ret, ocv);
 
 	return ocv;
 }
@@ -228,21 +229,21 @@ static u32 sm5703_get_soc(struct sm5703_fuelgauge_data *fuelgauge)
 
 	ta_exist = fuelgauge->is_charging && (fuelgauge->info.batt_current >= 0);
 
-	dev_dbg(&fuelgauge->i2c->dev, "%s: is_charging = %d, ta_exist = %d\n", __func__, fuelgauge->is_charging, ta_exist);
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: is_charging = %d, ta_exist = %d\n", __func__, fuelgauge->is_charging, ta_exist);
 
 	if(ta_exist)
 		curr_cal = fuelgauge->info.curr_cal + (fuelgauge->info.charge_offset_cal << 8);
 	else
 		curr_cal = fuelgauge->info.curr_cal;
-	dev_dbg(&fuelgauge->i2c->dev, "%s: curr_cal = 0x%x\n", __func__, curr_cal);
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: curr_cal = 0x%x\n", __func__, curr_cal);
 
 	/* abnormal case.... SW reset */
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_FG_OP_STATUS);
 	if ((ret & 0x00FF) != DISABLE_RE_INIT) {
 		ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_CNTL);
-		pr_info( "%s: SM5703 FG abnormal case!!!! SM5703_REG_CNTL : 0x%x\n", __func__, ret);
+		pr_battery_info( "%s: SM5703 FG abnormal case!!!! SM5703_REG_CNTL : 0x%x\n", __func__, ret);
 		if (ret == 0x2008) {
-			pr_info( "%s: SM5703 FG abnormal case.... SW reset\n", __func__);
+			pr_battery_info( "%s: SM5703 FG abnormal case.... SW reset\n", __func__);
 			/* SW reset code */
 			sm5703_fg_i2c_write_word(fuelgauge->i2c, 0x90, 0x0008);
 			/* delay 200ms */
@@ -265,14 +266,14 @@ static u32 sm5703_get_soc(struct sm5703_fuelgauge_data *fuelgauge)
 		curr_cal = curr_cal + ((((25 - (value.intval / 10)) / 6) * 3) << 8);
 	}
 
-	dev_info(&fuelgauge->i2c->dev, "%s: fg_get_soc : temp_std = %d, temperature = %d, temp_offset = %d, temp_offset_cal = 0x%x, curr_cal = 0x%x, bat_temp = %d\n",
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: fg_get_soc : temp_std = %d, temperature = %d, temp_offset = %d, temp_offset_cal = 0x%x, curr_cal = 0x%x, bat_temp = %d\n",
 		__func__, fuelgauge->info.temp_std, fuelgauge->info.temperature, fuelgauge->info.temp_offset, fuelgauge->info.temp_offset_cal, curr_cal, value.intval);
 
 	sm5703_fg_i2c_write_word(fuelgauge->i2c, SM5703_REG_CURR_CAL, curr_cal);
 
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_SOC);
 	if (ret < 0) {
-		pr_err("%s: read soc reg fail\n", __func__);
+		pr_battery_err("%s: read soc reg fail\n", __func__);
 		soc = 500;
 	} else {
 		/* integer bit */
@@ -283,7 +284,7 @@ static u32 sm5703_get_soc(struct sm5703_fuelgauge_data *fuelgauge)
 
 	fuelgauge->info.batt_soc = soc;
 
-	dev_info(&fuelgauge->i2c->dev, "%s: read = 0x%x, soc = %d\n", __func__, ret, soc);
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: read = 0x%x, soc = %d\n", __func__, ret, soc);
 
 	/* temp for SM5703 FG debug */
 	sm5703_fg_test_read(fuelgauge->i2c);
@@ -298,7 +299,7 @@ static unsigned int sm5703_get_vbat(struct sm5703_fuelgauge_data *fuelgauge)
 	unsigned int vbat;/* = 3500; 3500 means 3500mV*/
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_VOLTAGE);
 	if (ret < 0) {
-		pr_err("%s: read vbat reg fail", __func__);
+		pr_battery_err("%s: read vbat reg fail", __func__);
 		vbat = 4000;
 	} else {
 		/* integer bit */
@@ -314,10 +315,10 @@ static unsigned int sm5703_get_vbat(struct sm5703_fuelgauge_data *fuelgauge)
 		wake_unlock(&fuelgauge->fuel_alert_wake_lock);
 		sm5703_fuelgauge_fuelalert_init(fuelgauge,
 				fuelgauge->pdata->fuel_alert_soc);
-		pr_info("%s : COLD MODE DISABLE\n", __func__);
+		pr_battery_info("%s : COLD MODE DISABLE\n", __func__);
 	}
 
-	dev_dbg(&fuelgauge->i2c->dev, "%s: read = 0x%x, vbat = %d\n", __func__, ret, vbat);
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: read = 0x%x, vbat = %d\n", __func__, ret, vbat);
 
 	return vbat;
 }
@@ -331,7 +332,7 @@ static unsigned int sm5703_get_avgvbat(struct sm5703_fuelgauge_data *fuelgauge)
 	for (cnt = 0; cnt < 5; cnt++) {
 		ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_VOLTAGE);
 		if (ret < 0) {
-			pr_err("%s: read vbat reg fail", __func__);
+			pr_battery_err("%s: read vbat reg fail", __func__);
 			vbat = 4000;
 		} else {
 			/* integer bit */
@@ -347,7 +348,7 @@ static unsigned int sm5703_get_avgvbat(struct sm5703_fuelgauge_data *fuelgauge)
 	}
 
 	fuelgauge->info.batt_avgvoltage = old_vbat;
-	dev_dbg(&fuelgauge->i2c->dev, "%s: batt_avgvoltage = %d\n",
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: batt_avgvoltage = %d\n",
 			__func__, fuelgauge->info.batt_avgvoltage);
 
 	return old_vbat;
@@ -360,7 +361,7 @@ static int sm5703_get_curr(struct sm5703_fuelgauge_data *fuelgauge)
 
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_CURRENT);
 	if (ret<0) {
-		pr_err("%s: read curr reg fail", __func__);
+		pr_battery_err("%s: read curr reg fail", __func__);
 		curr = 0;
 	} else {
 		/* integer bit */
@@ -373,7 +374,7 @@ static int sm5703_get_curr(struct sm5703_fuelgauge_data *fuelgauge)
 	}
 
 	fuelgauge->info.batt_current = curr;
-	dev_dbg(&fuelgauge->i2c->dev, "%s: read = 0x%x, curr = %d\n",
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: read = 0x%x, curr = %d\n",
 		__func__, ret, curr);
 
 	return curr;
@@ -388,7 +389,7 @@ static int sm5703_get_avgcurr(struct sm5703_fuelgauge_data *fuelgauge)
 	for (cnt = 0; cnt < 5; cnt++) {
 		ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_CURRENT);
 		if (ret < 0) {
-			pr_err("%s: read curr reg fail", __func__);
+			pr_battery_err("%s: read curr reg fail", __func__);
 			curr = 0;
 		} else {
 			/* integer bit */
@@ -407,7 +408,7 @@ static int sm5703_get_avgcurr(struct sm5703_fuelgauge_data *fuelgauge)
 	}
 
 	fuelgauge->info.batt_avgcurrent = old_curr;
-	dev_dbg(&fuelgauge->i2c->dev, "%s: batt_avgcurrent = %d\n",
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: batt_avgcurrent = %d\n",
 		__func__, fuelgauge->info.batt_avgcurrent);
 
 	return old_curr;
@@ -420,7 +421,7 @@ static unsigned int sm5703_get_device_id(struct i2c_client *client)
 	ret = sm5703_fg_i2c_read_word(client, SM5703_REG_DEVICE_ID);
 	/* ret &= 0x00ff; */
 
-	dev_info(&client->dev, "%s: device_id = 0x%x\n", __func__, ret);
+	dev_battery_info(&client->dev, "%s: device_id = 0x%x\n", __func__, ret);
 
 	return ret;
 }
@@ -432,10 +433,10 @@ static bool sm5703_fg_check_reg_init_need(struct i2c_client *client)
 	ret = sm5703_fg_i2c_read_word(client, SM5703_REG_FG_OP_STATUS);
 
 	if((ret & 0x00FF) == DISABLE_RE_INIT) {
-		dev_dbg(&client->dev, "%s: return 0\n", __func__);
+		dev_battery_dbg(&client->dev, "%s: return 0\n", __func__);
 		return 0;
 	} else {
-		dev_dbg(&client->dev, "%s: return 1\n", __func__);
+		dev_battery_dbg(&client->dev, "%s: return 1\n", __func__);
 		return 1;
 	}
 }
@@ -463,12 +464,12 @@ static int calculate_iocv(struct i2c_client *client)
 	sum = sum - max - min;
 	l_minmax_offset = max - min;
 	l_avg = sum / (SM5703_REG_IOCV_B_L_MAX-SM5703_REG_IOCV_B_L_MIN-1);
-	dev_info(&client->dev,
+	dev_battery_info(&client->dev,
 		"%s: iocv_l_max=0x%x, iocv_l_min=0x%x, iocv_l_sum=0x%x, iocv_l_avg=0x%x \n",
 		__func__, max, min, sum, l_avg);
 
 	ret = sm5703_fg_i2c_read_word(client, SM5703_REG_END_V_IDX);
-	pr_info("%s: iocv_status_read = addr : 0x%x , data : 0x%x\n",
+	pr_battery_info("%s: iocv_status_read = addr : 0x%x , data : 0x%x\n",
 		__func__, SM5703_REG_END_V_IDX, ret);
 
 	if ((ret & 0x0030) == 0x0030) {
@@ -488,7 +489,7 @@ static int calculate_iocv(struct i2c_client *client)
 		}
 		sum = sum - max - min;
 		s_avg = sum / (SM5703_REG_IOCV_B_S_MAX-SM5703_REG_IOCV_B_S_MIN-1);
-		dev_info(&client->dev,
+		dev_battery_info(&client->dev,
 			"%s: iocv_s_max=0x%x, iocv_s_min=0x%x, iocv_s_sum=0x%x, iocv_s_avg=0x%x \n",
 			__func__, max, min, sum, s_avg);
 	}
@@ -525,11 +526,11 @@ static void fg_vbatocv_check(struct i2c_client *client)
 		fuelgauge->info.iocv_error_count = 0;
 	}
 
-	dev_info(&client->dev, "%s: iocv_error_count (%d)\n",
+	dev_battery_info(&client->dev, "%s: iocv_error_count (%d)\n",
 		__func__, fuelgauge->info.iocv_error_count);
 
 	if (fuelgauge->info.iocv_error_count > 5) {
-		dev_info(&client->dev,
+		dev_battery_info(&client->dev,
 			"%s: p_v - v = (%d)\n", __func__,
 			fuelgauge->info.p_batt_voltage - fuelgauge->info.batt_voltage);
 
@@ -537,7 +538,7 @@ static void fg_vbatocv_check(struct i2c_client *client)
 			fuelgauge->info.iocv_error_count = 0;
 		} else {
 			/* mode change to mix RS manual mode */
-			dev_info(&client->dev, "%s: mode change to mix RS manual mode\n", __func__);
+			dev_battery_info(&client->dev, "%s: mode change to mix RS manual mode\n", __func__);
 			/* RS manual value write */
 			sm5703_fg_i2c_write_word(client, SM5703_REG_RS_MAN, fuelgauge->info.rs_value[0]);
 			/* run update */
@@ -555,7 +556,7 @@ static void fg_vbatocv_check(struct i2c_client *client)
 			if((fuelgauge->info.p_batt_voltage < fuelgauge->info.n_tem_poff) &&
 				(fuelgauge->info.batt_voltage < fuelgauge->info.n_tem_poff) &&
 				(!ta_exist)) {
-				dev_info(&client->dev,
+				dev_battery_info(&client->dev,
 					"%s: mode change to normal tem mix RS manual mode\n", __func__);
 				/* mode change to mix RS manual mode */
 				/* RS manual value write */
@@ -574,7 +575,7 @@ static void fg_vbatocv_check(struct i2c_client *client)
 				ret = (ret | ENABLE_MIX_MODE) | ENABLE_RS_MAN_MODE; // +RS_MAN_MODE
 				sm5703_fg_i2c_write_word(client, SM5703_REG_CNTL, ret);
 			} else {
-				dev_info(&client->dev, "%s: mode change to mix RS auto mode\n", __func__);
+				dev_battery_info(&client->dev, "%s: mode change to mix RS auto mode\n", __func__);
 
 				/* mode change to mix RS auto mode */
 				ret = sm5703_fg_i2c_read_word(client, SM5703_REG_CNTL);
@@ -585,7 +586,7 @@ static void fg_vbatocv_check(struct i2c_client *client)
 			if((fuelgauge->info.p_batt_voltage < fuelgauge->info.l_tem_poff) &&
 				(fuelgauge->info.batt_voltage < fuelgauge->info.l_tem_poff) &&
 				(!ta_exist)) {
-				dev_info(&client->dev,
+				dev_battery_info(&client->dev,
 				"%s: mode change to normal tem mix RS manual mode\n", __func__);
 				/* mode change to mix RS manual mode */
 				/* RS manual value write */
@@ -604,7 +605,7 @@ static void fg_vbatocv_check(struct i2c_client *client)
 				ret = (ret | ENABLE_MIX_MODE) | ENABLE_RS_MAN_MODE; /* +RS_MAN_MODE */
 				sm5703_fg_i2c_write_word(client, SM5703_REG_CNTL, ret);
 			} else {
-				dev_info(&client->dev, "%s: mode change to mix RS auto mode\n", __func__);
+				dev_battery_info(&client->dev, "%s: mode change to mix RS auto mode\n", __func__);
 
 				/* mode change to mix RS auto mode */
 				ret = sm5703_fg_i2c_read_word(client, SM5703_REG_CNTL);
@@ -627,7 +628,7 @@ static void sm5703_fg_get_scaled_capacity(
 		0 : ((val->intval - fuelgauge->pdata->capacity_min) * 1000 /
 		(fuelgauge->capacity_max - fuelgauge->pdata->capacity_min));
 
-	dev_dbg(&fuelgauge->i2c->dev,
+	dev_battery_dbg(&fuelgauge->i2c->dev,
 			"%s: scaled capacity (%d.%d)\n",
 			__func__, val->intval/10, val->intval%10);
 }
@@ -650,7 +651,7 @@ static void sm5703_fg_get_atomic_capacity(
 			SEC_FUELGAUGE_CAPACITY_TYPE_SKIP_ABNORMAL) {
 		if (!fuelgauge->is_charging &&
 				fuelgauge->capacity_old < val->intval) {
-			dev_err(&fuelgauge->i2c->dev,
+			dev_battery_err(&fuelgauge->i2c->dev,
 					"%s: capacity (old %d : new %d)\n",
 					__func__, fuelgauge->capacity_old, val->intval);
 			val->intval = fuelgauge->capacity_old;
@@ -672,7 +673,7 @@ static int sm5703_fg_check_capacity_max(
 			(fuelgauge->pdata->capacity_max -
 			 fuelgauge->pdata->capacity_max_margin);
 
-		dev_info(&fuelgauge->i2c->dev, "%s: set capacity max(%d --> %d)\n",
+		dev_battery_info(&fuelgauge->i2c->dev, "%s: set capacity max(%d --> %d)\n",
 				__func__, capacity_max, new_capacity_max);
 	} else if (new_capacity_max > (fuelgauge->pdata->capacity_max +
 				fuelgauge->pdata->capacity_max_margin)) {
@@ -680,7 +681,7 @@ static int sm5703_fg_check_capacity_max(
 			(fuelgauge->pdata->capacity_max +
 			 fuelgauge->pdata->capacity_max_margin);
 
-		dev_info(&fuelgauge->i2c->dev, "%s: set capacity max(%d --> %d)\n",
+		dev_battery_info(&fuelgauge->i2c->dev, "%s: set capacity max(%d --> %d)\n",
 				__func__, capacity_max, new_capacity_max);
 	}
 
@@ -699,7 +700,7 @@ static int sm5703_fg_calculate_dynamic_scale(
 		fuelgauge->capacity_max =
 			fuelgauge->pdata->capacity_max -
 			fuelgauge->pdata->capacity_max_margin;
-		pr_info("%s: capacity_max (%d)", __func__,
+		pr_battery_info("%s: capacity_max (%d)", __func__,
 				fuelgauge->capacity_max);
 	} else {
 		fuelgauge->capacity_max =
@@ -709,7 +710,7 @@ static int sm5703_fg_calculate_dynamic_scale(
 			(fuelgauge->pdata->capacity_max +
 			 fuelgauge->pdata->capacity_max_margin) :
 			raw_soc_val.intval;
-		pr_info("%s: raw soc (%d)", __func__,
+		pr_battery_info("%s: raw soc (%d)", __func__,
 				fuelgauge->capacity_max);
 	}
 
@@ -725,7 +726,7 @@ static int sm5703_fg_calculate_dynamic_scale(
 		fuelgauge->capacity_old = min((raw_soc_val.intval / 10), 100);
 	}
 
-	pr_info("%s: %d is used for capacity_max, capacity(%d)\n",
+	pr_battery_info("%s: %d is used for capacity_max, capacity(%d)\n",
 			__func__, fuelgauge->capacity_max, capacity);
 
 	return fuelgauge->capacity_max;
@@ -736,7 +737,7 @@ static void sm5703_fuelgauge_fuelalert_init(struct sm5703_fuelgauge_data *fuelga
 {
 	int ret;
 
-	dev_dbg(&fuelgauge->i2c->dev, "%s: sec_hal_fg_fuelalert_init\n", __func__);
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: sec_hal_fg_fuelalert_init\n", __func__);
 
 	/* remove interrupt */
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_INTFG);
@@ -777,7 +778,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 	int i, j, value, ret;
 	uint8_t table_reg;
 
-	dev_info(&fuelgauge->i2c->dev, "%s: sm5703_fg_reg_init START!!\n", __func__);
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: sm5703_fg_reg_init START!!\n", __func__);
 
 	/* start first param_ctrl unlock */
 	sm5703_fg_i2c_write_word(fuelgauge->i2c,
@@ -787,7 +788,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 	for (i = 0; i < 3; i++) {
 		sm5703_fg_i2c_write_word(fuelgauge->i2c,
 			SM5703_REG_RCE0+i, fuelgauge->info.rce_value[i]);
-		dev_dbg(&fuelgauge->i2c->dev,
+		dev_battery_dbg(&fuelgauge->i2c->dev,
 			"%s: RCE write RCE%d = 0x%x : 0x%x\n",
 			__func__,
 			i, SM5703_REG_RCE0+i, fuelgauge->info.rce_value[i]);
@@ -796,7 +797,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 	/* DTCD write */
 	sm5703_fg_i2c_write_word(fuelgauge->i2c,
 		SM5703_REG_DTCD, fuelgauge->info.dtcd_value);
-	dev_dbg(&fuelgauge->i2c->dev,
+	dev_battery_dbg(&fuelgauge->i2c->dev,
 		"%s: DTCD write DTCD = 0x%x : 0x%x\n",
 		__func__,
 		SM5703_REG_DTCD, fuelgauge->info.dtcd_value);
@@ -804,7 +805,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 	/* RS write */
 	sm5703_fg_i2c_write_word(fuelgauge->i2c,
 		SM5703_REG_RS, fuelgauge->info.rs_value[0]);
-	dev_dbg(&fuelgauge->i2c->dev,
+	dev_battery_dbg(&fuelgauge->i2c->dev,
 		"%s: RS write RS = 0x%x : 0x%x\n",
 		__func__,
 		SM5703_REG_RS, fuelgauge->info.rs_value[0]);
@@ -813,7 +814,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 	/* VIT_PERIOD write */
 	sm5703_fg_i2c_write_word(fuelgauge->i2c,
 		SM5703_REG_VIT_PERIOD, fuelgauge->info.vit_period);
-	dev_dbg(&fuelgauge->i2c->dev,
+	dev_battery_dbg(&fuelgauge->i2c->dev,
 		"%s: VIT_PERIOD write VIT_PERIOD = 0x%x : 0x%x\n",
 		__func__,
 		SM5703_REG_VIT_PERIOD, fuelgauge->info.vit_period);
@@ -843,7 +844,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 	sm5703_fg_i2c_write_word(fuelgauge->i2c,
 		SM5703_REG_MIX_INIT_BLANK, fuelgauge->info.mix_value[1]);
 
-	dev_dbg(&fuelgauge->i2c->dev,
+	dev_battery_dbg(&fuelgauge->i2c->dev,
 		"%s: RS_MIX_FACTOR = 0x%x, RS_MAX = 0x%x, RS_MIN = 0x%x,\
 		MIX_RATE = 0x%x, MIX_INIT_BLANK = 0x%x\n",		\
 		__func__, fuelgauge->info.rs_value[1],
@@ -858,7 +859,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 	sm5703_fg_i2c_write_word(fuelgauge->i2c,
 		SM5703_REG_CURR_CAL, fuelgauge->info.curr_cal);
 
-	dev_dbg(&fuelgauge->i2c->dev, "%s: VOLT_CAL = 0x%x, CURR_CAL = 0x%x\n",
+	dev_battery_dbg(&fuelgauge->i2c->dev, "%s: VOLT_CAL = 0x%x, CURR_CAL = 0x%x\n",
 		__func__, fuelgauge->info.volt_cal, fuelgauge->info.curr_cal);
 
 	/* top off soc set */
@@ -883,18 +884,18 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 		value = value | ENABLE_MANUAL_OCV;
 	}
 
-	pr_info("%s: SM5703_REG_CNTL reg : 0x%x\n", __func__, value);
+	pr_battery_info("%s: SM5703_REG_CNTL reg : 0x%x\n", __func__, value);
 
 	ret = sm5703_fg_i2c_write_word(fuelgauge->i2c, SM5703_REG_CNTL, value);
 	if (ret < 0)
-		dev_dbg(&fuelgauge->i2c->dev,
+		dev_battery_dbg(&fuelgauge->i2c->dev,
 		"%s: fail control register set(%d)\n", __func__, ret);
 
 	/* Lock */
 	value = SM5703_FG_PARAM_LOCK_CODE | SM5703_FG_TABLE_LEN;
 	sm5703_fg_i2c_write_word(fuelgauge->i2c,
 		SM5703_REG_PARAM_CTRL, value);
-	dev_info(&fuelgauge->i2c->dev,
+	dev_battery_info(&fuelgauge->i2c->dev,
 		"%s: LAST PARAM CTRL VALUE = 0x%x : 0x%x\n",
 		__func__, SM5703_REG_PARAM_CTRL, value);
 
@@ -905,7 +906,7 @@ static bool sm5703_fg_reg_init(struct sm5703_fuelgauge_data *fuelgauge,
 		value = calculate_iocv(fuelgauge->i2c);
 
 	sm5703_fg_i2c_write_word(fuelgauge->i2c, SM5703_REG_IOCV_MAN, value);
-	pr_info( "%s: IOCV_MAN_WRITE = %d : 0x%x\n",
+	pr_battery_info( "%s: IOCV_MAN_WRITE = %d : 0x%x\n",
 			__func__, fuelgauge->info.batt_ocv, value);
 
 	return 1;
@@ -920,7 +921,7 @@ static bool sm5703_fg_init(struct sm5703_fuelgauge_data *fuelgauge)
 	/* SM5703 i2c read check */
 	ret = sm5703_get_device_id(fuelgauge->i2c);
 	if (ret < 0) {
-		dev_dbg(&fuelgauge->i2c->dev,
+		dev_battery_dbg(&fuelgauge->i2c->dev,
 			"%s: fail to do i2c read(%d)\n", __func__, ret);
 
 		return false;
@@ -931,19 +932,19 @@ static bool sm5703_fg_init(struct sm5703_fuelgauge_data *fuelgauge)
 	reg_val &= 0xDFFF;
 	reg_val |= (fuelgauge->info.enable_topoff_soc << 13);
 
-	pr_info("%s: SM5703_REG_CNTL reg : 0x%x\n", __func__, reg_val);
+	pr_battery_info("%s: SM5703_REG_CNTL reg : 0x%x\n", __func__, reg_val);
 
 	sm5703_fg_i2c_write_word(fuelgauge->i2c, SM5703_REG_CNTL, reg_val);
 
 	value.intval = POWER_SUPPLY_HEALTH_UNKNOWN;
 	psy_do_property("sm5703-charger", get,
 			POWER_SUPPLY_PROP_HEALTH, value);
-	dev_dbg(&fuelgauge->i2c->dev,
+	dev_battery_dbg(&fuelgauge->i2c->dev,
 		"%s: get POWER_SUPPLY_PROP_HEALTH = 0x%x\n",
 		__func__, value.intval);
 
 	ta_exist = fuelgauge->is_charging && (fuelgauge->info.batt_current >= 0);
-	dev_dbg(&fuelgauge->i2c->dev,
+	dev_battery_dbg(&fuelgauge->i2c->dev,
 		"%s: is_charging = %d, ta_exist = %d\n",
 		__func__, fuelgauge->is_charging, ta_exist);
 
@@ -954,37 +955,37 @@ static bool sm5703_fg_init(struct sm5703_fuelgauge_data *fuelgauge)
 	fuelgauge->info.temperature = sm5703_get_temperature(fuelgauge);
 
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x30);
-	pr_info("%s: sm5703 FG 0x30 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x30 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x31);
-	pr_info("%s: sm5703 FG 0x31 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x31 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x32);
-	pr_info("%s: sm5703 FG 0x32 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x32 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x33);
-	pr_info("%s: sm5703 FG 0x33 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x33 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x34);
-	pr_info("%s: sm5703 FG 0x34 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x34 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x35);
-	pr_info("%s: sm5703 FG 0x35 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x35 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x36);
-	pr_info("%s: sm5703 FG 0x36 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x36 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x37);
-	pr_info("%s: sm5703 FG 0x37 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x37 = 0x%x \n", __func__, ret);
 
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x40);
-	pr_info("%s: sm5703 FG 0x40 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x40 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x41);
-	pr_info("%s: sm5703 FG 0x41 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x41 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x42);
-	pr_info("%s: sm5703 FG 0x42 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x42 = 0x%x \n", __func__, ret);
 	ret = sm5703_fg_i2c_read_word(fuelgauge->i2c, 0x43);
-	pr_info("%s: sm5703 FG 0x43 = 0x%x \n", __func__, ret);
+	pr_battery_info("%s: sm5703 FG 0x43 = 0x%x \n", __func__, ret);
 
 	return true;
 }
 
 static bool sm5703_fg_reset(struct sm5703_fuelgauge_data *fuelgauge)
 {
-	dev_info(&fuelgauge->i2c->dev, "%s: sec_hal_fg_reset\n", __func__);
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: sec_hal_fg_reset\n", __func__);
 
 	/* SW reset code */
 	sm5703_fg_i2c_write_word(fuelgauge->i2c, 0x90, 0x0008);
@@ -1008,7 +1009,7 @@ static void sm5703_fg_reset_capacity_by_jig_connection(struct sm5703_fuelgauge_d
 		int retry = 0;
 
 		while(fuelgauge->is_sleep_state == true){
-			pr_info("%s sleep_state retry=%d\n", __func__, retry);
+			pr_battery_info("%s sleep_state retry=%d\n", __func__, retry);
 			usleep_range(10 * 1000, 10 * 1000);
 			if (++retry > 5)
 				break;
@@ -1080,7 +1081,7 @@ static int sm5703_fg_get_property(struct power_supply *psy,
 
 				if (!fuelgauge->is_charging &&
 						(fuelgauge->force_dec_mode == SM5703_COLD_MODE)) {
-					pr_info("%s : SW V EMPTY. Decrease SOC\n", __func__);
+					pr_battery_info("%s : SW V EMPTY. Decrease SOC\n", __func__);
 					val->intval = 0;
 				} else if ((fuelgauge->force_dec_mode == SM5703_RECOVERY_MODE) &&
 						(val->intval == fuelgauge->capacity_old)) {
@@ -1166,7 +1167,7 @@ static int sm5703_fg_set_property(struct power_supply *psy,
 				}
 
 				if (fuelgauge->info.is_low_batt_alarm) {
-					pr_info("%s: Reset low_batt_alarm\n",
+					pr_battery_info("%s: Reset low_batt_alarm\n",
 							__func__);
 					fuelgauge->info.is_low_batt_alarm = false;
 				}
@@ -1191,7 +1192,7 @@ static int sm5703_fg_set_property(struct power_supply *psy,
 			sm5703_fg_reset_capacity_by_jig_connection(fuelgauge);
 			break;
 		case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:
-			dev_info(&fuelgauge->i2c->dev,
+			dev_battery_info(&fuelgauge->i2c->dev,
 					"%s: capacity_max changed, %d -> %d\n",
 					__func__, fuelgauge->capacity_max, val->intval);
 			fuelgauge->capacity_max = sm5703_fg_check_capacity_max(fuelgauge, val->intval);
@@ -1210,7 +1211,7 @@ static void sm5703_fg_isr_work(struct work_struct *work)
 	int fg_alert_status;
 
 	fg_alert_status = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_STATUS);
-	dev_info(&fuelgauge->i2c->dev, "%s: fg_alert_status(0x%x)\n",
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: fg_alert_status(0x%x)\n",
 		__func__, fg_alert_status);
 
 	fg_alert_status &= fuelgauge->info.irq_ctrl;
@@ -1219,7 +1220,7 @@ static void sm5703_fg_isr_work(struct work_struct *work)
 	}
 
 	if (fg_alert_status & ENABLE_L_VOL_INT) {
-		pr_info("%s : Battery Voltage is Very Low!! SW V EMPTY ENABLE\n", __func__);
+		pr_battery_info("%s : Battery Voltage is Very Low!! SW V EMPTY ENABLE\n", __func__);
 		fuelgauge->force_dec_mode = SM5703_COLD_MODE;
 	}
 }
@@ -1232,7 +1233,7 @@ static void sm5703_fg_isr(void *irq_data)
 
 	/* clear interrupt */
 	fg_irq = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_INTFG);
-	dev_info(&fuelgauge->i2c->dev, "%s: fg_irq(0x%x)\n", __func__, fg_irq);
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: fg_irq(0x%x)\n", __func__, fg_irq);
 
 	if (!fuelgauge->is_fuel_alerted) {
 		wake_lock(&fuelgauge->fuel_alert_wake_lock);
@@ -1248,7 +1249,7 @@ static irqreturn_t sm5703_fg_irq_thread(int irq, void *irq_data)
 
 	/* clear interrupt */
 	fg_irq = sm5703_fg_i2c_read_word(fuelgauge->i2c, SM5703_REG_INTFG);
-	dev_info(&fuelgauge->i2c->dev, "%s: fg_irq(0x%x)\n",
+	dev_battery_info(&fuelgauge->i2c->dev, "%s: fg_irq(0x%x)\n",
 		__func__, fg_irq);
 
 	if (!fuelgauge->is_fuel_alerted) {
@@ -1292,48 +1293,48 @@ static int sm5703_fg_parse_dt(struct sm5703_fuelgauge_data *fuelgauge)
 	struct device_node *np = of_find_node_by_name(NULL, "sm5703-fuelgauge");
 
 	if (np == NULL) {
-		pr_err("%s np NULL\n", __func__);
+		pr_battery_err("%s np NULL\n", __func__);
 	} else {
 		fuelgauge->pdata->fg_irq = of_get_named_gpio(np, "fuelgauge,fuel_int", 0);
 		if (fuelgauge->pdata->fg_irq < 0)
-			pr_err("%s error reading fg_irq = %d\n",
+			pr_battery_err("%s error reading fg_irq = %d\n",
 				__func__, fuelgauge->pdata->fg_irq);
 
 		ret = of_property_read_u32(np, "fuelgauge,capacity_max",
 				&fuelgauge->pdata->capacity_max);
 		if (ret < 0)
-			pr_err("%s error reading capacity_max %d\n", __func__, ret);
+			pr_battery_err("%s error reading capacity_max %d\n", __func__, ret);
 
 		ret = of_property_read_u32(np, "fuelgauge,capacity_max_margin",
 				&fuelgauge->pdata->capacity_max_margin);
 		if (ret < 0)
-			pr_err("%s error reading capacity_max_margin %d\n", __func__, ret);
+			pr_battery_err("%s error reading capacity_max_margin %d\n", __func__, ret);
 
 		ret = of_property_read_u32(np, "fuelgauge,capacity_min",
 				&fuelgauge->pdata->capacity_min);
 		if (ret < 0)
-			pr_err("%s error reading capacity_min %d\n", __func__, ret);
+			pr_battery_err("%s error reading capacity_min %d\n", __func__, ret);
 
 		ret = of_property_read_u32(np, "fuelgauge,capacity_calculation_type",
 				&fuelgauge->pdata->capacity_calculation_type);
 		if (ret < 0)
-			pr_err("%s error reading capacity_calculation_type %d\n",
+			pr_battery_err("%s error reading capacity_calculation_type %d\n",
 					__func__, ret);
 
 		ret = of_property_read_u32(np, "fuelgauge,fuel_alert_soc",
 				&fuelgauge->pdata->fuel_alert_soc);
 		if (ret < 0)
-			pr_err("%s error reading pdata->fuel_alert_soc %d\n",
+			pr_battery_err("%s error reading pdata->fuel_alert_soc %d\n",
 					__func__, ret);
 
 		ret = of_property_read_u32(np, "fuelgauge,model_type",
 			&fuelgauge->pdata->model_type);
 		if (ret < 0)
-			pr_err("%s error reading pdata->model_type %d\n",
+			pr_battery_err("%s error reading pdata->model_type %d\n",
 					__func__, ret);
 	}
 
-	pr_info("%s: fg_irq : %d, capacity_max : %d, capacity_max_margin : %d, capacity_min : %d\n",
+	pr_battery_info("%s: fg_irq : %d, capacity_max : %d, capacity_max_margin : %d, capacity_min : %d\n",
 		__func__, fuelgauge->pdata->fg_irq, fuelgauge->pdata->capacity_max,
 		fuelgauge->pdata->capacity_max_margin, fuelgauge->pdata->capacity_min);
 
@@ -1486,14 +1487,14 @@ static int sm5703_fg_parse_dt(struct sm5703_fuelgauge_data *fuelgauge)
 
 	np = of_find_node_by_name(NULL, "battery");
 	if (!np) {
-		pr_info("%s : np NULL\n", __func__);
+		pr_battery_info("%s : np NULL\n", __func__);
 		return -ENODATA;
 	}
 
 	ret = of_property_read_string(np, "battery,fuelgauge_name",
 		(char const **)&fuelgauge->pdata->fuelgauge_name);
 	if (ret)
-		pr_info("%s: fuelgauge name is Empty.\n", __func__);
+		pr_battery_info("%s: fuelgauge name is Empty.\n", __func__);
 
 	return 0;
 }
@@ -1519,7 +1520,7 @@ static int sm5703_fuelgauge_probe(struct i2c_client *client,
 	union power_supply_propval raw_soc_val;
 	int ret = 0;
 
-	pr_info("%s: SM5703 Fuelgauge Driver Loading\n", __func__);
+	pr_battery_info("%s: SM5703 Fuelgauge Driver Loading\n", __func__);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
 		return -EIO;
@@ -1536,7 +1537,7 @@ static int sm5703_fuelgauge_probe(struct i2c_client *client,
 		fuelgauge->pdata = devm_kzalloc(&client->dev, sizeof(*(fuelgauge->pdata)),
 				GFP_KERNEL);
 		if (!fuelgauge->pdata) {
-			dev_err(&client->dev, "Failed to allocate memory\n");
+			dev_battery_err(&client->dev, "Failed to allocate memory\n");
 			ret = -ENOMEM;
 			goto err_parse_dt_nomem;
 		}
@@ -1568,13 +1569,13 @@ static int sm5703_fuelgauge_probe(struct i2c_client *client,
 
 	ret = sm5703_fg_init(fuelgauge);
 	if (ret < 0) {
-		pr_err("%s: Failed to Initialize Fuelgauge\n", __func__); 
+		pr_battery_err("%s: Failed to Initialize Fuelgauge\n", __func__); 
 		/* goto err_data_free; */
 	}
 
 	ret = power_supply_register(&client->dev, &fuelgauge->psy_fg);
 	if (ret) {
-		pr_err("%s: Failed to Register psy_fg\n", __func__);
+		pr_battery_err("%s: Failed to Register psy_fg\n", __func__);
 		goto err_data_free;
 	}
 
@@ -1591,7 +1592,7 @@ static int sm5703_fuelgauge_probe(struct i2c_client *client,
 							STMPE_TRIGGER_FALLING,
 							"SM5703-Fuelgauge", fuelgauge);
 		if(ret) {
-			pr_err("%s: Failed register to STMPE (%d)\n", __func__, ret);
+			pr_battery_err("%s: Failed register to STMPE (%d)\n", __func__, ret);
 			goto err_supply_unreg;
 		}
 #else
@@ -1600,7 +1601,7 @@ static int sm5703_fuelgauge_probe(struct i2c_client *client,
 					&fuelgauge->isr_work, sm5703_fg_isr_work);
 
 			fuelgauge->fg_irq = gpio_to_irq(fuelgauge->pdata->fg_irq);
-			dev_info(&client->dev,
+			dev_battery_info(&client->dev,
 					"%s: fg_irq = %d\n", __func__, fuelgauge->fg_irq);
 			if (fuelgauge->fg_irq > 0) {
 				ret = request_threaded_irq(fuelgauge->fg_irq,
@@ -1609,18 +1610,18 @@ static int sm5703_fuelgauge_probe(struct i2c_client *client,
 						| IRQF_ONESHOT,
 						"fuelgauge-irq", fuelgauge);
 				if (ret) {
-					dev_err(&client->dev,
+					dev_battery_err(&client->dev,
 							"%s: Failed to Reqeust IRQ\n", __func__);
 					goto err_supply_unreg;
 				}
 
 				ret = enable_irq_wake(fuelgauge->fg_irq);
 				if (ret < 0)
-					dev_err(&client->dev,
+					dev_battery_err(&client->dev,
 							"%s: Failed to Enable Wakeup Source(%d)\n",
 							__func__, ret);
 			} else {
-				dev_err(&client->dev, "%s: Failed gpio_to_irq(%d)\n",
+				dev_battery_err(&client->dev, "%s: Failed gpio_to_irq(%d)\n",
 						__func__, fuelgauge->fg_irq);
 				goto err_supply_unreg;
 			}
@@ -1635,7 +1636,7 @@ static int sm5703_fuelgauge_probe(struct i2c_client *client,
 	fuelgauge->is_sleep_state = false;
 #endif
 
-	pr_info("%s: SM5703 Fuelgauge Driver Loaded\n", __func__);
+	pr_battery_info("%s: SM5703 Fuelgauge Driver Loaded\n", __func__);
 	return 0;
 
 err_supply_unreg:
@@ -1731,7 +1732,7 @@ static struct i2c_driver sm5703_fuelgauge_driver = {
 
 static int __init sm5703_fuelgauge_init(void)
 {
-	pr_info("%s: SM5703 Fuelgauge Init\n", __func__);
+	pr_battery_info("%s: SM5703 Fuelgauge Init\n", __func__);
 	return i2c_add_driver(&sm5703_fuelgauge_driver);
 }
 

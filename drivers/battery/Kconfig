@@ -7,6 +7,13 @@ config BATTERY_SAMSUNG
 	 To see battery-related functions,
 	 refer to sec_charging_common.h
 
+config BATTERY_DEBUG
+	tristate "enable battery debug"
+	default n
+	depends on BATTERY_SAMSUNG
+	help
+	 enable battery debug.
+
 config BATTERY_SMART
 	tristate "smart battery driver"
 	help
