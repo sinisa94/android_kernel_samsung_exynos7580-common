@@ -11,13 +11,11 @@
 #include "melfas_mms400.h"
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 #include <linux/trustedui.h>
-extern int tui_force_close(uint32_t arg);
 #endif
 
 #if MMS_USE_CMD_MODE
 
 #define NAME_OF_UNKNOWN_CMD "not_support_cmd"
-#define ABS(x)	(((x) < 0) ? -(x) : (x))
 
 enum CMD_STATUS {
 	CMD_STATUS_WAITING = 0,
@@ -145,12 +143,6 @@ static void cmd_get_fw_ver_bin(void *device_data)
 
 	cmd_clear_result(info);
 
-	if (!fw_name) {
-		sprintf(buf, "%s", "NG");
-		info->cmd_state = CMD_STATUS_FAIL;
-		goto EXIT;
-	}
-
 	request_firmware(&fw, fw_name, &info->client->dev);
 
 	if (!fw) {
@@ -269,6 +261,34 @@ static void cmd_get_config_ver(void *device_data)
 		__func__, buf, info->cmd_state);
 }
 
+static void get_checksum_data(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	char buf[64] = { 0 };
+	u8 rbuf[64];
+	u8 wbuf[64];
+	int val;
+
+	cmd_clear_result(info);
+
+	wbuf[0] = MIP_R0_INFO;
+	wbuf[1] = MIP_R1_INFO_CHECKSUM_REALTIME;
+	if (mms_i2c_read(info, wbuf, 2, rbuf, 1)) {
+		info->cmd_state = CMD_STATUS_FAIL;
+		goto EXIT;
+	}
+
+	val = rbuf[0];
+
+	sprintf(buf, "%d", val);
+	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+
+	info->cmd_state = CMD_STATUS_OK;
+
+EXIT:
+	input_err(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
+		__func__, buf, info->cmd_state);
+}
 /**
  * Command : Get X ch num
  */
@@ -476,6 +496,37 @@ EXIT:
 }
 
 /**
+ * Command : Get intensity data
+ */
+static void cmd_get_intensity(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	char buf[64] = { 0 };
+
+	int x = info->cmd_param[0];
+	int y = info->cmd_param[1];
+	int idx = 0;
+
+	cmd_clear_result(info);
+
+	if ((x < 0) || (x >= info->node_x) || (y < 0) || (y >= info->node_y)) {
+		sprintf(buf, "%s", "NG");
+		info->cmd_state = CMD_STATUS_FAIL;
+		goto EXIT;
+	}
+
+	idx = y * info->node_x + x;
+
+	sprintf(buf, "%d", info->image_buf[idx]);
+	info->cmd_state = CMD_STATUS_OK;
+
+EXIT:
+	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+	input_dbg(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
+		__func__, buf, info->cmd_state);
+}
+
+/**
  * Command : Read rawdata image
  */
 static void cmd_read_rawdata(void *device_data)
@@ -505,6 +556,37 @@ static void cmd_read_rawdata(void *device_data)
 	}
 
 	sprintf(buf, "%d,%d", min, max);
+	info->cmd_state = CMD_STATUS_OK;
+
+EXIT:
+	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+	input_dbg(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
+		__func__, buf, info->cmd_state);
+}
+
+/**
+ * Command : Get rawdata
+ */
+static void cmd_get_rawdata(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	char buf[64] = { 0 };
+
+	int x = info->cmd_param[0];
+	int y = info->cmd_param[1];
+	int idx = 0;
+
+	cmd_clear_result(info);
+
+	if ((x < 0) || (x >= info->node_x) || (y < 0) || (y >= info->node_y)) {
+		sprintf(buf, "%s", "NG");
+		info->cmd_state = CMD_STATUS_FAIL;
+		goto EXIT;
+	}
+
+	idx = y * info->node_x + x;
+
+	sprintf(buf, "%d", info->image_buf[idx]);
 	info->cmd_state = CMD_STATUS_OK;
 
 EXIT:
@@ -552,63 +634,31 @@ EXIT:
 }
 
 /**
- * Command : Run cm ratio test
+ * Command : Get result of cm delta test
  */
-static void cmd_run_test_cm_ratio(void *device_data)
+static void cmd_get_cm_delta(void *device_data)
 {
 	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
 	char buf[64] = { 0 };
 
-	int min = 999999;
-	int max = -999999;
-	int i = 0, j = 0, ratio;
+	int x = info->cmd_param[0];
+	int y = info->cmd_param[1];
+	int idx = 0;
 
 	cmd_clear_result(info);
 
-	for (i = info->node_y; i > 0; i--) {
-		for (j = info->node_x; j > 0; j--) {
-			/* check x, y ratio bigger */
-			if (ABS(info->image_buf[(i * info->node_x) + j] - info->image_buf[(i * info->node_x) + (j - 1)]) 
-				> ABS(info->image_buf[(i * info->node_x) + j] - info->image_buf[((i - 1) * info->node_x) + j])) {
-					/* check y ratio */
-					ratio = info->image_buf[(i * info->node_x) + j] * 100 / (info->image_buf[(i * info->node_x) + (j - 1)] + 1) - 100;
-					if (ratio > 127) {
-						ratio = 127;
-					} else if (ratio < -127) {
-						ratio = -127;
-					}
-					info->image_buf[(i * info->node_x) + j] = ratio;
-			} else {
-				/* check x ratio */
-				ratio = info->image_buf[(i * info->node_x) + j] * 100 / (info->image_buf[((i - 1) * info->node_x) + j] + 1) -100;
-				if (ratio > 127) {
-					ratio = 127;
-				} else if (ratio < -127) {
-					ratio = -127;
-				}
-				info->image_buf[(i * info->node_x) + j] = ratio;
-			}
-		}
+	if ((x < 0) || (x >= info->node_x) || (y < 0) || (y >= info->node_y)) {
+		sprintf(buf, "%s", "NG");
+		info->cmd_state = CMD_STATUS_FAIL;
+		goto EXIT;
 	}
 
-	for (i = 0; i < info->node_y; i++) {
-		for (j = 0; j < info->node_x; j++) {
-			if ((i == 0) | ( j == 0))
-				info->image_buf[(i * info->node_x) + j] = 0;
-			printk("%4d ", info->image_buf[(i * info->node_x) + j]);
-			if (info->image_buf[(i * info->node_x) + j] > max) {
-				max = info->image_buf[(i * info->node_x) + j];
-			}
-			if (info->image_buf[(i * info->node_x) + j] < min) {
-				min = info->image_buf[(i * info->node_x) + j];
-			}
-		}
-		printk("\n");
-	}
+	idx = y * info->node_x + x;
 
-	sprintf(buf, "%d,%d", min, max);
+	sprintf(buf, "%d", info->image_buf[idx]);
 	info->cmd_state = CMD_STATUS_OK;
 
+EXIT:
 	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
 	input_dbg(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
 		__func__, buf, info->cmd_state);
@@ -653,47 +703,9 @@ EXIT:
 }
 
 /**
- * Command : Run jitter test
+ * Command : Get result of cm abs test
  */
-static void cmd_run_test_jitter(void *device_data)
-{
-	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
-	char buf[64] = { 0 };
-
-	int min = 999999;
-	int max = -999999;
-	int i = 0;
-
-	cmd_clear_result(info);
-
-	if (mms_run_test(info, MIP_TEST_TYPE_CM_JITTER)) {
-		sprintf(buf, "%s", "NG");
-		info->cmd_state = CMD_STATUS_FAIL;
-		goto EXIT;
-	}
-
-	for (i = 0; i < (info->node_x * info->node_y); i++) {
-		if (info->image_buf[i] > max) {
-			max = info->image_buf[i];
-		}
-		if (info->image_buf[i] < min) {
-			min = info->image_buf[i];
-		}
-	}
-
-	sprintf(buf, "%d,%d", min, max);
-	info->cmd_state = CMD_STATUS_OK;
-
-EXIT:
-	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
-	input_dbg(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
-		__func__, buf, info->cmd_state);
-}
-
-/**
- * Command : Get result of test
- */
-static void cmd_get_data(void *device_data)
+static void cmd_get_cm_abs(void *device_data)
 {
 	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
 	char buf[64] = { 0 };
@@ -725,167 +737,16 @@ static void cmd_get_threshold(void *device_data)
 {
 	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
 	char buf[64] = { 0 };
-	u8 wbuf[2];
-	u8 rbuf[1];
 
 	cmd_clear_result(info);
-
-	wbuf[0] = MIP_R0_INFO;
-	wbuf[1] = MIP_R1_INFO_IC_CONTACT_ON_THD;
-	if (mms_i2c_read(info, wbuf, 2, rbuf, 1)) {
-		info->cmd_state = CMD_STATUS_FAIL;
-		sprintf(buf, "%s", "NG");
-		goto EXIT;
-	}
-	input_info(true, &info->client->dev,
-			"%s: read from IC, %d\n",
-			__func__, rbuf[0]);
-	if (rbuf[0] > 0)
-		sprintf(buf, "%d", rbuf[0]);
-	else
-		sprintf(buf, "55");
+	sprintf(buf, "55");
+	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
 
 	info->cmd_state = CMD_STATUS_OK;
-EXIT:
-	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+
 	input_dbg(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
 		__func__, buf, info->cmd_state);
 }
-
-static void dead_zone_enable(void *device_data)
-{
-	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
-	int length = 0;
-	int enable = info->cmd_param[0];
-	u8 wbuf[4];
-	int status;
-
-	cmd_clear_result(info);
-
-	input_info(true, &info->client->dev, "%s %d\n", __func__, enable);
-
-	if (enable)
-		status = 0;
-	else
-		status = 2;
-
-	wbuf[0] = MIP_R0_CTRL;
-	wbuf[1] = MIP_R1_CTRL_DISABLE_EDGE_EXPAND;
-	wbuf[2] = status;
-
-	if ((enable == 0) || (enable == 1)) {
-		if (mms_i2c_write(info, wbuf, 3)) {
-			input_err(true, &info->client->dev, "%s [ERROR] mms_i2c_write\n", __func__);
-			goto out;
-		} else
-			input_info(true, &info->client->dev, "%s - value[%d]\n", __func__, wbuf[2]);
-	} else {
-		input_err(true, &info->client->dev, "%s [ERROR] Unknown value[%d]\n", __func__, status);
-		goto out;
-	}
-	input_dbg(true, &info->client->dev, "%s [DONE] \n", __func__);
-
-	info->cmd_state = CMD_STATUS_OK;
-	length = strlen(info->print_buf);
-	input_err(true, &info->client->dev, "%s: length is %d\n", __func__, length);
-
-out:
-	cmd_set_result(info, info->print_buf, length);
-
-	mutex_lock(&info->lock);
-	info->cmd_busy = false;
-	mutex_unlock(&info->lock);
-
-	info->cmd_state = CMD_STATUS_WAITING;
-}
-
-static void get_checksum_data(void *device_data)
-{
-	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
-	char buf[64] = { 0 };
-	u8 rbuf[64];
-	u8 wbuf[64];
-
-	cmd_clear_result(info);
-
-	mms_disable(info);
-	mms_enable(info);
-
-	/* read checksum */
-	wbuf[0] = MIP_R0_INFO;
-	wbuf[1] = MIP_R1_INFO_CHECKSUM_PRECALC;
-
-	if (mms_i2c_read(info, wbuf, 2, rbuf, 4)) {
-		info->cmd_state = CMD_STATUS_FAIL;
-		goto EXIT;
-	}
-
-	info->pre_chksum = (rbuf[0] << 8) | (rbuf[1]);
-	info->rt_chksum = (rbuf[2] << 8) | (rbuf[3]);
-	input_info(true, &info->client->dev,
-		"%s - precalced checksum:%04X, real-time checksum:%04X\n",
-		__func__, info->pre_chksum, info->rt_chksum);
-
-	if((info->pre_chksum == info->rt_chksum) && (info->rt_chksum != 0))
-		info->cmd_state = CMD_STATUS_OK;
-	else
-		info->cmd_state = CMD_STATUS_FAIL;
-EXIT:
-	sprintf(buf, (info->cmd_state == CMD_STATUS_OK) ? "%X" : "NG", info->rt_chksum);
-	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
-
-	input_err(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
-		__func__, buf, info->cmd_state);
-}
-
-static void clear_cover_mode(void *device_data)
-{
-	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
-	struct i2c_client *client = info->client;
-	char buf[64] = { 0 };
-
-	input_info(true, &client->dev, "%s: %d, %d\n",
-			__func__, info->cmd_param[0], info->cmd_param[1]);
-	cmd_clear_result(info);
-
-	if (info->cmd_param[0] < 0 || info->cmd_param[0] > 3) {
-		sprintf(buf, "NG");
-		info->cmd_state = CMD_STATUS_FAIL;
-	} else {
-		if (info->cmd_param[0] > 1) {
-			info->flip_enable = true;
-			info->cover_type = info->cmd_param[1];
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
-			if (TRUSTEDUI_MODE_TUI_SESSION & trustedui_get_current_mode()) {
-				msleep(100);
-				tui_force_close(1);
-				msleep(200);
-				if (TRUSTEDUI_MODE_TUI_SESSION & trustedui_get_current_mode()) {
-					trustedui_clear_mask(TRUSTEDUI_MODE_VIDEO_SECURED|TRUSTEDUI_MODE_INPUT_SECURED);
-					trustedui_set_mode(TRUSTEDUI_MODE_OFF);
-				}
-			}
-#endif
-		} else {
-			info->flip_enable = false;
-		}
-
-		if (info->enabled && !info->init)
-			mms_set_cover_type(info);
-
-		sprintf(buf, "%s", "OK");
-		info->cmd_state = CMD_STATUS_OK;
-	}
-	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
-
-	info->cmd_state = CMD_STATUS_WAITING;
-	
-	mutex_lock(&info->lock);
-	info->cmd_busy = false;
-	mutex_unlock(&info->lock);
-
-	input_info(true, &client->dev, "%s: %s\n", __func__, buf);
-};
 
 static void get_intensity_all_data(void *device_data)
 {
@@ -1003,6 +864,150 @@ out:
 
 	info->cmd_state = CMD_STATUS_WAITING;
 }
+
+static void dead_zone_enable(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	int length = 0;
+	int enable = info->cmd_param[0];
+	u8 wbuf[4];
+	int status;
+
+	cmd_clear_result(info);
+
+	input_info(true, &info->client->dev, "%s %d\n", __func__, enable);
+
+	if (enable)
+		status = 0;
+	else
+		status = 2;
+
+	wbuf[0] = MIP_R0_CTRL;
+	wbuf[1] = MIP_R1_CTRL_DISABLE_EDGE_EXPAND;
+	wbuf[2] = status;
+
+	if ((enable == 0) || (enable == 1)) {
+		if (mms_i2c_write(info, wbuf, 3)) {
+			input_err(true, &info->client->dev, "%s [ERROR] mms_i2c_write\n", __func__);
+			goto out;
+		} else
+			input_info(true, &info->client->dev, "%s - value[%d]\n", __func__, wbuf[2]);
+	} else {
+		input_err(true, &info->client->dev, "%s [ERROR] Unknown value[%d]\n", __func__, status);
+		goto out;
+	}
+	input_dbg(true, &info->client->dev, "%s [DONE] \n", __func__);
+
+	info->cmd_state = CMD_STATUS_OK;
+	length = strlen(info->print_buf);
+	input_err(true, &info->client->dev, "%s: length is %d\n", __func__, length);
+
+out:
+	cmd_set_result(info, info->print_buf, length);
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = false;
+	mutex_unlock(&info->lock);
+
+	info->cmd_state = CMD_STATUS_WAITING;
+}
+
+#ifdef GLOVE_MODE
+static void glove_mode(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	int length = 0;
+	int enable = info->cmd_param[0];
+	u8 wbuf[4];
+
+	cmd_clear_result(info);
+
+	input_info(true, &info->client->dev, "%s %d\n", __func__, enable);
+
+	wbuf[0] = MIP_R0_CTRL;
+	wbuf[1] = MIP_R1_CTRL_GLOVE_MODE;
+	wbuf[2] = enable;
+
+	if ((enable == 0) || (enable == 1)) {
+		if (mms_i2c_write(info, wbuf, 3)) {
+			input_err(true, &info->client->dev, "%s [ERROR] mms_i2c_write\n", __func__);
+			goto out;
+		} else
+			input_info(true, &info->client->dev, "%s - value[%d]\n", __func__, wbuf[2]);
+	} else {
+		input_err(true, &info->client->dev, "%s [ERROR] Unknown value[%d]\n", __func__, enable);
+		goto out;
+	}
+	input_dbg(true, &info->client->dev, "%s [DONE] \n", __func__);
+
+	info->cmd_state = CMD_STATUS_OK;
+	length = strlen(info->print_buf);
+	input_err(true, &info->client->dev, "%s: length is %d\n", __func__, length);
+
+out:
+	cmd_set_result(info, info->print_buf, length);
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = false;
+	mutex_unlock(&info->lock);
+
+	info->cmd_state = CMD_STATUS_WAITING;
+}
+#endif
+
+#ifdef COVER_MODE
+static void clear_cover_mode(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	int length = 0;
+	int enable = info->cmd_param[0];
+	u8 wbuf[4];
+
+	cmd_clear_result(info);
+
+	input_info(true, &info->client->dev, "%s %d\n", __func__, enable);
+
+	if (!info->enabled) {
+		input_err(true, &info->client->dev,
+			"%s : tsp disabled\n", __func__);
+		goto out;
+	}
+
+	wbuf[0] = MIP_R0_CTRL;
+	wbuf[1] = MIP_R1_CTRL_WINDOW_MODE;
+	wbuf[2] = enable;
+
+	if ((enable >= 0) || (enable <= 3)) {
+		if (mms_i2c_write(info, wbuf, 3)) {
+			input_err(true, &info->client->dev, "%s [ERROR] mms_i2c_write\n", __func__);
+			goto out;
+		} else{
+			input_info(true, &info->client->dev, "%s - value[%d]\n", __func__, wbuf[2]);
+		}
+	} else {
+		input_err(true, &info->client->dev, "%s [ERROR] Unknown value[%d]\n", __func__, enable);
+		goto out;
+	}
+	input_dbg(true, &info->client->dev, "%s [DONE] \n", __func__);
+
+	info->cmd_state = CMD_STATUS_OK;
+	length = strlen(info->print_buf);
+	input_err(true, &info->client->dev, "%s: length is %d\n", __func__, length);
+
+out:
+	if(enable > 0)
+		info->cover_mode = true;
+	else
+		info->cover_mode = false;
+	cmd_set_result(info, info->print_buf, length);
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = false;
+	mutex_unlock(&info->lock);
+
+	info->cmd_state = CMD_STATUS_WAITING;
+}
+#endif
 
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 static void tui_mode_cmd(struct mms_ts_info *info)
@@ -1194,6 +1199,32 @@ out:
 }
 
 /**
+ * Command : Check SRAM failure
+ */
+static void cmd_check_sram(void *device_data)
+{
+	struct mms_ts_info *info = (struct mms_ts_info *)device_data;
+	char buf[64] = { 0 };
+	int val;
+
+	cmd_clear_result(info);
+
+	val = (int) info->sram_addr[0];
+
+	if(val != 0)
+		sprintf(buf, "0x%x", val);
+	else
+		sprintf(buf, "%s", "0");
+
+	cmd_set_result(info, buf, strnlen(buf, sizeof(buf)));
+
+	info->cmd_state = CMD_STATUS_OK;
+
+	input_dbg(true, &info->client->dev, "%s - cmd[%s] state[%d]\n",
+		__func__, buf, info->cmd_state);
+}
+
+/**
  * Command : Unknown cmd
  */
 static void cmd_unknown_cmd(void *device_data)
@@ -1240,6 +1271,7 @@ static struct mms_cmd mms_commands[] = {
 	{MMS_CMD("get_fw_ver_ic", cmd_get_fw_ver_ic),},
 	{MMS_CMD("get_chip_vendor", cmd_get_chip_vendor),},
 	{MMS_CMD("get_chip_name", cmd_get_chip_name),},
+	{MMS_CMD("get_checksum_data", get_checksum_data),},
 	{MMS_CMD("get_x_num", cmd_get_x_num),},
 	{MMS_CMD("get_y_num", cmd_get_y_num),},
 	{MMS_CMD("get_max_x", cmd_get_max_x),},
@@ -1247,34 +1279,35 @@ static struct mms_cmd mms_commands[] = {
 	{MMS_CMD("module_off_master", cmd_module_off_master),},
 	{MMS_CMD("module_on_master", cmd_module_on_master),},
 	{MMS_CMD("run_intensity_read", cmd_read_intensity),},
-	{MMS_CMD("get_intensity", cmd_get_data),},
+	{MMS_CMD("get_intensity", cmd_get_intensity),},
 	{MMS_CMD("run_rawdata_read", cmd_read_rawdata),},
-	{MMS_CMD("get_rawdata", cmd_get_data),},
+	{MMS_CMD("get_rawdata", cmd_get_rawdata),},
 	{MMS_CMD("run_inspection_read", cmd_run_test_cm_delta),},
-	{MMS_CMD("get_inspection", cmd_get_data),},
+	{MMS_CMD("get_inspection", cmd_get_cm_delta),},
 	{MMS_CMD("run_cm_delta_read", cmd_run_test_cm_delta),},
-	{MMS_CMD("get_cm_delta", cmd_get_data),},
-	{MMS_CMD("run_cm_ratio_read", cmd_run_test_cm_ratio),},
-	{MMS_CMD("get_cm_ratio", cmd_get_data),},
+	{MMS_CMD("get_cm_delta", cmd_get_cm_delta),},
 	{MMS_CMD("run_cm_abs_read", cmd_run_test_cm_abs),},
-	{MMS_CMD("get_cm_abs", cmd_get_data),},
-	{MMS_CMD("run_jitter_read", cmd_run_test_jitter),},
-	{MMS_CMD("get_jitter", cmd_get_data),},
+	{MMS_CMD("get_cm_abs", cmd_get_cm_abs),},
 	{MMS_CMD("get_config_ver", cmd_get_config_ver),},
 	{MMS_CMD("get_threshold", cmd_get_threshold),},
 	{MMS_CMD("get_intensity_all_data", get_intensity_all_data),},
 	{MMS_CMD("get_rawdata_all_data", get_rawdata_all_data),},
 	{MMS_CMD("get_cm_delta_all_data", get_cm_delta_all_data),},
 	{MMS_CMD("get_cm_abs_all_data", get_cm_abs_all_data),},
+	{MMS_CMD("dead_zone_enable", dead_zone_enable),},
+#ifdef GLOVE_MODE
+	{MMS_CMD("glove_mode", glove_mode),},
+#endif
+#ifdef COVER_MODE
+	{MMS_CMD("clear_cover_mode", clear_cover_mode),},
+#endif
 	{MMS_CMD("module_off_slave", cmd_unknown_cmd),},
 	{MMS_CMD("module_on_slave", cmd_unknown_cmd),},
-	{MMS_CMD("dead_zone_enable", dead_zone_enable),},
-	{MMS_CMD("get_checksum_data", get_checksum_data),},
-	{MMS_CMD("clear_cover_mode", clear_cover_mode),},
 	{MMS_CMD("spay_enable", spay_enable),},
 	{MMS_CMD("aod_enable", aod_enable),},
 	{MMS_CMD("set_aod_rect", set_aod_rect),},
 	{MMS_CMD("get_aod_rect", get_aod_rect),},
+	{MMS_CMD("check_sram", cmd_check_sram),},
 	{MMS_CMD(NAME_OF_UNKNOWN_CMD, cmd_unknown_cmd),},
 };
 
@@ -1297,17 +1330,17 @@ static ssize_t mms_sys_cmd(struct device *dev, struct device_attribute *devattr,
 	if (!info) {
 		pr_err("%s [ERROR] mms_ts_info not found\n", __func__);
 		ret = -EINVAL;
-		return ret;
+		return count;
 	}
 
 	if (strlen(buf) >= CMD_LEN) {
 		input_err(true, &info->client->dev, "%s: cmd length is over (%s,%d)!!\n", __func__, buf, (int)strlen(buf));
 		ret = -EINVAL;
-		return ret;
+		goto ERROR;
 	}
 
-	input_dbg(false, &info->client->dev, "%s [START]\n", __func__);
-	input_dbg(false, &info->client->dev, "%s - input [%s]\n", __func__, buf);
+	input_dbg(true, &info->client->dev, "%s [START]\n", __func__);
+	input_dbg(true, &info->client->dev, "%s - input [%s]\n", __func__, buf);
 
 	if (!info->input_dev) {
 		input_err(true, &info->client->dev,
@@ -1345,7 +1378,7 @@ static ssize_t mms_sys_cmd(struct device *dev, struct device_attribute *devattr,
 	else
 		memcpy(cbuf, buf, len);
 
-	input_info(true, &info->client->dev, "%s - command [%s]\n", __func__, cbuf);
+	input_dbg(true, &info->client->dev, "%s - command [%s]\n", __func__, cbuf);
 
 	//command
 	list_for_each_entry(mms_cmd_ptr, &info->cmd_list_head, list) {
@@ -1385,9 +1418,9 @@ static ssize_t mms_sys_cmd(struct device *dev, struct device_attribute *devattr,
 	}
 
 	//print
-	input_dbg(false, &info->client->dev, "%s - cmd [%s]\n", __func__, mms_cmd_ptr->cmd_name);
+	input_dbg(true, &info->client->dev, "%s - cmd [%s]\n", __func__, mms_cmd_ptr->cmd_name);
 	for (i = 0; i < param_cnt; i++) {
-		input_dbg(false, &info->client->dev,
+		input_dbg(true, &info->client->dev,
 			"%s - param #%d [%d]\n", __func__, i, info->cmd_param[i]);
 	}
 
@@ -1399,7 +1432,7 @@ static ssize_t mms_sys_cmd(struct device *dev, struct device_attribute *devattr,
 	//execute
 	mms_cmd_ptr->cmd_func(info);
 
-	input_dbg(false, &info->client->dev, "%s [DONE]\n", __func__);
+	input_dbg(true, &info->client->dev, "%s [DONE]\n", __func__);
 	return count;
 
 ERROR:
@@ -1506,86 +1539,117 @@ static ssize_t mms_sys_cmd_list(struct device *dev,
 static DEVICE_ATTR(cmd_list, S_IRUGO, mms_sys_cmd_list, NULL);
 static DEVICE_ATTR(scrub_pos, S_IRUGO, scrub_position_show, NULL);
 
-static ssize_t read_ito_check_show(struct device *dev, 
-					struct device_attribute *devattr, char *buf)
+static ssize_t read_multi_count_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
 {
 	struct mms_ts_info *info = dev_get_drvdata(dev);
-
-	input_info(true, &info->client->dev, "%s: %02X%02X%02X%02X\n", __func__,
-				info->ito_test[0], info->ito_test[1],
-				info->ito_test[2], info->ito_test[3]);
-
-	return snprintf(buf, PAGE_SIZE, "%02X%02X%02X%02X",
-					info->ito_test[0], info->ito_test[1],
-					info->ito_test[2], info->ito_test[3]);
-}
-
-static ssize_t read_raw_check_show(struct device *dev, 
-					struct device_attribute *devattr, char *buf)
-{
-	struct mms_ts_info *info = dev_get_drvdata(dev);
-	
-	input_info(true, &info->client->dev, "%s\n", __func__);
-	return snprintf(buf, PAGE_SIZE, "OK");
-}
-
-static ssize_t read_multi_count_show(struct device *dev, 
-					struct device_attribute *devattr, char *buf)
-{
-	struct mms_ts_info *info = dev_get_drvdata(dev);
-	char buffer[256]= { 0 };
 
 	input_info(true, &info->client->dev, "%s: %d\n", __func__, info->multi_count);
-	snprintf(buffer, sizeof(buffer), "%d", info->multi_count);
+
+	return snprintf(buf, PAGE_SIZE, "%d", info->multi_count);
+}
+
+static ssize_t clear_multi_count_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+
 	info->multi_count = 0;
+	input_info(true, &info->client->dev, "%s: clear\n", __func__);
 
-	return snprintf(buf, PAGE_SIZE, "%s\n", buffer);
+	return count;
 }
 
-static ssize_t read_wet_mode_show(struct device *dev, 
-					struct device_attribute *devattr, char *buf)
+static ssize_t read_comm_err_count_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
 {
 	struct mms_ts_info *info = dev_get_drvdata(dev);
-	char buffer[256]= { 0 };
-
-	input_info(true, &info->client->dev, "%s: %d\n", __func__, info->wet_count);
-	snprintf(buffer, sizeof(buffer), "%d", info->wet_count);
-	info->wet_count = 0;
-
-	return snprintf(buf, PAGE_SIZE, "%s\n", buffer);
-}
-
-static ssize_t read_comm_err_count_show(struct device *dev, 
-					struct device_attribute *devattr, char *buf)
-{
-	struct mms_ts_info *info = dev_get_drvdata(dev);
-	char buffer[256]= { 0 };
 
 	input_info(true, &info->client->dev, "%s: %d\n", __func__, info->comm_err_count);
-	snprintf(buffer, sizeof(buffer), "%d", info->comm_err_count);
-	info->comm_err_count = 0;
 
-	return snprintf(buf, PAGE_SIZE, "%s\n", buffer);
+	return snprintf(buf, PAGE_SIZE, "%d", info->comm_err_count);
 }
 
-static ssize_t read_module_id_show(struct device *dev, 
-					struct device_attribute *devattr, char *buf)
+static ssize_t clear_comm_err_count_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
 {
 	struct mms_ts_info *info = dev_get_drvdata(dev);
 
-	input_info(true, &info->client->dev, "%s\n", __func__);
+	info->comm_err_count = 0;
 
-	return snprintf(buf, PAGE_SIZE, "ME%02X%02X%02X%02X00\n",
-					info->boot_ver_ic, info->dtdata->panel,
-					info->core_ver_ic, info->config_ver_ic);	
+	input_info(true, &info->client->dev, "%s: clear\n", __func__);
+
+	return count;
 }
 
-static DEVICE_ATTR(ito_check, S_IRUGO, read_ito_check_show, NULL);
-static DEVICE_ATTR(raw_check, S_IRUGO, read_raw_check_show, NULL);
-static DEVICE_ATTR(multi_count, S_IRUGO, read_multi_count_show, NULL);
-static DEVICE_ATTR(wet_mode, S_IRUGO, read_wet_mode_show, NULL);
-static DEVICE_ATTR(comm_err_count, S_IRUGO, read_comm_err_count_show, NULL);
+static ssize_t read_module_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "ME%02X%02X%02X0000",
+		info->dtdata->panel, info->core_ver_ic, info->config_ver_ic);
+}
+
+static ssize_t read_vendor_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "MELFAS");
+}
+
+static ssize_t mms_sys_dt2w_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", info->dt2w_enable);
+}
+
+static ssize_t mms_sys_dt2w_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+	bool enable;
+
+	if (count < 1)
+		return -EINVAL;
+
+	enable = buf[0] == '1';
+
+	if (!info->enabled) {
+		return -EINVAL;
+	}
+
+	if (enable == info->dt2w_enable)
+		return 0;
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = true;
+	mutex_unlock(&info->lock);
+
+	if (enable) {
+		info->lowpower_mode = true;
+		info->lowpower_flag |= MMS_LPM_FLAG_AOD;
+		info->dt2w_enable = true;
+	} else {
+		info->lowpower_flag &= ~MMS_LPM_FLAG_AOD;
+		if (!info->lowpower_flag)
+			info->lowpower_mode = false;
+		info->dt2w_enable = false;
+	}
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = false;
+	mutex_unlock(&info->lock);
+	return 0;
+}
+
+static DEVICE_ATTR(dt2w_enable, 0660, mms_sys_dt2w_enable_show, mms_sys_dt2w_enable_store);static DEVICE_ATTR(multi_count, S_IRUGO | S_IWUSR | S_IWGRP, read_multi_count_show, clear_multi_count_store);
+static DEVICE_ATTR(comm_err_count, S_IRUGO | S_IWUSR | S_IWGRP, read_comm_err_count_show, clear_comm_err_count_store);
 static DEVICE_ATTR(module_id, S_IRUGO, read_module_id_show, NULL);
+static DEVICE_ATTR(vendor, S_IRUGO, read_vendor_show, NULL);
 
 /**
  * Sysfs - cmd attr info
@@ -1596,12 +1660,11 @@ static struct attribute *mms_cmd_attr[] = {
 	&dev_attr_cmd_result.attr,
 	&dev_attr_cmd_list.attr,
 	&dev_attr_scrub_pos.attr,
-	&dev_attr_ito_check.attr,
-	&dev_attr_raw_check.attr,
+	&dev_attr_dt2w_enable.attr,
 	&dev_attr_multi_count.attr,
-	&dev_attr_wet_mode.attr,
 	&dev_attr_comm_err_count.attr,
 	&dev_attr_module_id.attr,
+	&dev_attr_vendor.attr,
 	NULL,
 };
 

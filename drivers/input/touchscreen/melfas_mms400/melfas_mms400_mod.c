@@ -19,42 +19,51 @@ static bool ta_connected = 0;
  */
 int mms_power_control(struct mms_ts_info *info, int enable)
 {
-	int ret;
+	int ret = 0;
 	struct i2c_client *client = info->client;
-	struct regulator *regulator_dvdd;
-	struct regulator *regulator_avdd;
+	struct regulator *regulator_dvdd = NULL;
+	struct regulator *regulator_avdd = NULL;
 	struct pinctrl_state *pinctrl_state;
+	static bool on;
 
 	input_info(true, &info->client->dev, "%s [START %s] \n",
 			__func__, enable? "on":"off");
 
+	if (on == enable) {
+		input_err(true, &client->dev, "%s : TSP power already %s\n",
+			__func__,(on)?"on":"off");
+		return ret;
+	}
+
 	if (info->dtdata->gpio_io_en) {
 		regulator_dvdd = regulator_get(NULL, info->dtdata->gpio_io_en);
-		if (IS_ERR(regulator_dvdd)) {
-			input_info(true, &client->dev,"%s: Failed to get %s regulator.\n",
+		if (IS_ERR_OR_NULL(regulator_dvdd)) {
+				input_err(true, &client->dev,"%s: Failed to get %s regulator.\n",
 				 __func__, info->dtdata->gpio_io_en);
-			return PTR_ERR(regulator_dvdd);
+			ret = PTR_ERR(regulator_dvdd);
+			goto out;
 		}
 	}
 
 	regulator_avdd = regulator_get(NULL, info->dtdata->gpio_vdd_en);
-	if (IS_ERR(regulator_avdd)) {
-		input_info(true, &client->dev,"%s: Failed to get %s regulator.\n",
+	if (IS_ERR_OR_NULL(regulator_avdd)) {
+		input_err(true, &client->dev,"%s: Failed to get %s regulator.\n",
 			 __func__, info->dtdata->gpio_vdd_en);
-		return PTR_ERR(regulator_avdd);
+		ret = PTR_ERR(regulator_avdd);
+		goto out;
 	}
 
 	if (enable) {
 		ret = regulator_enable(regulator_avdd);
 		if (ret) {
-			input_info(true, &client->dev,"%s: Failed to enable avdd: %d\n", __func__, ret);
-			return ret;
+			input_err(true, &client->dev, "%s: Failed to enable avdd: %d\n", __func__, ret);
+			goto out;
 		}
 		if (info->dtdata->gpio_io_en) {
 			ret = regulator_enable(regulator_dvdd);
 			if (ret) {
-				input_info(true, &client->dev,"%s: Failed to enable vdd: %d\n", __func__, ret);
-				return ret;
+					input_err(true, &client->dev,"%s: Failed to enable vdd: %d\n", __func__, ret);
+				goto out;
 			}
 		}
 		pinctrl_state = pinctrl_lookup_state(info->pinctrl, "on_state");
@@ -69,18 +78,22 @@ int mms_power_control(struct mms_ts_info *info, int enable)
 		pinctrl_state = pinctrl_lookup_state(info->pinctrl, "off_state");
 	}
 
-	if (IS_ERR(pinctrl_state)) {
-		input_info(true, &client->dev,"%s: Failed to lookup pinctrl.\n", __func__);
+	if (IS_ERR_OR_NULL(pinctrl_state)) {
+		input_err(true, &client->dev,"%s: Failed to lookup pinctrl.\n", __func__);
 	} else {
 		ret = pinctrl_select_state(info->pinctrl, pinctrl_state);
 		if (ret)
-			input_info(true, &client->dev, "%s: Failed to configure pinctrl.\n", __func__);
+			input_err(true, &client->dev, "%s: Failed to configure pinctrl.\n", __func__);
 	}
 
-	if (info->dtdata->gpio_io_en) {
+	on = enable;
+out:
+	if (info->dtdata->gpio_io_en && !IS_ERR_OR_NULL(regulator_dvdd)) {
 		regulator_put(regulator_dvdd);
 	}
-	regulator_put(regulator_avdd);
+	if (!IS_ERR_OR_NULL(regulator_avdd)) {
+		regulator_put(regulator_avdd);
+	}
 
 	if (!enable)
 		usleep_range(10 * 1000, 11 * 1000);
@@ -89,7 +102,7 @@ int mms_power_control(struct mms_ts_info *info, int enable)
 
 	input_info(true, &info->client->dev, "%s [DONE %s] \n",
 			__func__, enable? "on":"off");
-	return 0;
+	return ret;
 }
 
 /**
@@ -99,14 +112,11 @@ void mms_clear_input(struct mms_ts_info *info)
 {
 	int i;
 
-	input_info(true, &info->client->dev, "%s\n", __func__);
-
 	input_report_key(info->input_dev, BTN_TOUCH, 0);
 	input_report_key(info->input_dev, BTN_TOOL_FINGER, 0);
 
 	for (i = 0; i< MAX_FINGER_NUM; i++) {
-		info->finger[i].finger_state = 0;
-		info->finger[i].move_count= 0;
+		info->finger_state[i] = 0;
 		input_mt_slot(info->input_dev, i);
 		input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, false);
 	}
@@ -115,37 +125,8 @@ void mms_clear_input(struct mms_ts_info *info)
 	info->check_multi = 0;
 
 	input_sync(info->input_dev);
-#if defined (CONFIG_INPUT_BOOSTER)
-	input_booster_send_event(BOOSTER_DEVICE_TOUCH, BOOSTER_MODE_FORCE_OFF);
-#endif
+	return;
 }
-
-#ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
-static char location_detect(struct mms_ts_info *info, int coord, bool flag)
-{
-	/* flag ? coord = Y : coord = X */
-	int x_devide = info->max_x / 3;
-	int y_devide = info->max_y / 3;
-
-	if (flag) {
-		if (coord < y_devide)
-			return 'H';
-		else if (coord < y_devide * 2)
-			return 'M';
-		else
-			return 'L';
-	} else {
-		if (coord < x_devide)
-			return '0';
-		else if (coord < x_devide * 2)
-			return '1';
-		else
-			return '2';
-	}
-
-	return 'E';
-}
-#endif
 
 /**
  * Input event handler - Report touch input event
@@ -158,22 +139,18 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 	input_dbg(false, &client->dev, "%s [START]\n", __func__);
 	input_dbg(false, &client->dev, "%s - sz[%d] buf[0x%02X]\n", __func__, sz, buf[0]);
 
-	for (i = 1; i < sz; i += MMS_DEFAULT_EVENT_SIZE) {
+	for (i = 0; i < sz; i += info->event_size) {
 		u8 *tmp = &buf[i];
 
 		int id = (tmp[0] & MIP_EVENT_INPUT_ID) - 1;
 		int x = tmp[2] | ((tmp[1] & 0xf) << 8);
 		int y = tmp[3] | (((tmp[1] >> 4) & 0xf) << 8);
 		int pressure = tmp[4];
+		//int size = tmp[5];		// sumsize
 		int touch_major = tmp[6];
 		int touch_minor = tmp[7];
 
 		int palm = (tmp[0] & MIP_EVENT_INPUT_PALM) >> 4;
-
-		if (id < 0) {
-			input_info(true, &client->dev, "%s skip invalid data %d\n", __func__, id);
-			continue;
-		}
 
 		// Report input data
 #if MMS_USE_TOUCHKEY
@@ -217,40 +194,21 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 #endif
 				input_mt_report_slot_state(info->input_dev,
 								MT_TOOL_FINGER, false);
-				if (info->finger[id].finger_state != 0) {
+				if (info->finger_state[id] != 0){
 					info->touch_count--;
 					if (!info->touch_count) {
 						input_report_key(info->input_dev, BTN_TOUCH, 0);
 						input_report_key(info->input_dev,
 									BTN_TOOL_FINGER, 0);
+						info->check_multi = 0;
 					}
-
-					info->finger[id].finger_state = 0;
-#ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
+					info->finger_state[id] = 0;
 					input_info(true, &client->dev,
-						"R[%d] loc:%c%c V[%02x%02x%02x] tc:%d mc:%d\n",
-						id, location_detect(info, info->finger[id].ly, 1),
-						location_detect(info, info->finger[id].lx, 0),
-						info->boot_ver_ic, info->core_ver_ic,
-						info->config_ver_ic, info->touch_count,
-						info->finger[id].move_count);
-#else
-					input_err(true, &client->dev,
-						"R[%d] (%d, %d) V[%02x%02x%02x] tc:%d mc:%d\n",
-						id, info->finger[id].lx, info->finger[id].ly,
-						info->boot_ver_ic, info->core_ver_ic,
-						info->config_ver_ic, info->touch_count,
-						info->finger[id].move_count);
-#endif
-					info->finger[id].move_count = 0;
+						"R[%d] V[%02x%02x%02x] tc:%d\n",
+						id, info->boot_ver_ic, info->core_ver_ic,
+						info->config_ver_ic, info->touch_count);
 				}
-				if(info->touch_count == 0){
-					info->check_multi = 0;
-				}
-#if defined (CONFIG_INPUT_BOOSTER)
-				if (!info->touch_count)
-					input_booster_send_event(BOOSTER_DEVICE_TOUCH, BOOSTER_MODE_OFF);
-#endif
+
 				continue;
 			}
 
@@ -259,8 +217,8 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 			input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, true);
 			input_report_key(info->input_dev, BTN_TOUCH, 1);
 			input_report_key(info->input_dev, BTN_TOOL_FINGER, 1);
-			input_report_abs(info->input_dev, ABS_MT_POSITION_X,x);
-			input_report_abs(info->input_dev, ABS_MT_POSITION_Y,y);
+			input_report_abs(info->input_dev, ABS_MT_POSITION_X, x);
+			input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
 #ifdef CONFIG_SEC_FACTORY
 			if (pressure)
 				input_report_abs(info->input_dev, ABS_MT_PRESSURE, pressure);
@@ -270,24 +228,21 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 			input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR, touch_major);
 			input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR, touch_minor);
 			input_report_abs(info->input_dev, ABS_MT_PALM, palm);
+#if defined(MELFAS_GHOST_TOUCH_AUTO_DETECT)
+			info->cur_data[id].x = x;
+			info->cur_data[id].y = y;
+			info->cur_data[id].z = pressure;
+#endif
 
-			info->finger[id].lx = x;
-			info->finger[id].ly = y;
-
-			if (info->finger[id].finger_state > 0)
-				info->finger[id].move_count++;
-
-			if (info->finger[id].finger_state == 0) {
-				info->finger[id].finger_state = 1;
-				info->finger[id].move_count = 0;
+			if (info->finger_state[id] == 0){
+				info->finger_state[id] = 1;
 				info->touch_count++;
 #ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
 				input_info(true, &client->dev,
-					"P[%d] loc:%c%c z:%d p:%d m:%d,%d tc:%d\n",
-					id, location_detect(info, y, 1), location_detect(info, x, 0),
-					pressure, palm, touch_major, touch_minor, info->touch_count);
+					"P[%d] z:%d p:%d m:%d,%d tc:%d\n",
+					id, pressure, palm, touch_major, touch_minor, info->touch_count);
 #else
-				input_err(true, &client->dev,
+				input_info(true, &client->dev,
 					"P[%d] (%d, %d) z:%d p:%d m:%d,%d tc:%d\n",
 					id, x, y, pressure, palm, touch_major, touch_minor, info->touch_count);
 #endif
@@ -295,9 +250,6 @@ void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf)
 					info->check_multi = 1;
 					info->multi_count++;
 				}
-#if defined (CONFIG_INPUT_BOOSTER)
-				input_booster_send_event(BOOSTER_DEVICE_TOUCH, BOOSTER_MODE_ON);
-#endif
 			}
 		}
 	}
@@ -340,9 +292,6 @@ int mms_parse_devicetree(struct device *dev, struct mms_ts_info *info)
 	info->dtdata->gpio_sda = of_get_named_gpio(np, "melfas,sda-gpio", 0);
 	gpio_request(info->dtdata->gpio_sda, "melfas_sda_gpio");
 
-//	info->dtdata->tsp_sel = of_get_named_gpio(np, "melfas,tsp_sel", 0);
-//	gpio_request(info->dtdata->tsp_sel, "melfas_sel_gpio");
-
 	if (of_property_read_string(np, "melfas,vdd_en", &info->dtdata->gpio_vdd_en)) {
 		input_err(true, dev,  "Failed to get regulator_dvdd name property\n");
 	}
@@ -351,19 +300,21 @@ int mms_parse_devicetree(struct device *dev, struct mms_ts_info *info)
 		info->dtdata->gpio_io_en = NULL;
 	}
 
+	if (of_property_read_u32(np, "melfas,fw-skip", &info->dtdata->fw_update_skip) >= 0)
+		input_info(true, dev, "%s() melfas,fw-skip: %d\n", __func__, info->dtdata->fw_update_skip);	
+
 	if (of_property_read_string(np, "melfas,fw_name", &info->dtdata->fw_name)) {
 		input_err(true, dev, "Failed to get fw_name property\n");
-		info->dtdata->fw_name = NULL;
+		info->dtdata->fw_name = INTERNAL_FW_PATH;
 	}
 
 	info->dtdata->support_lpm = of_property_read_bool(np, "melfas,support_lpm");
-
-	input_info(true, dev, "%s: max_x:%d max_y:%d int:%d irq:%d sda:%d scl:%d"
-		" fwname:%s, support_LPM:%d\n",
-		__func__, info->dtdata->max_x, info->dtdata->max_y,
+	
+	input_info(true, dev, "%s: fw_name %s max_x:%d max_y:%d int:%d irq:%d sda:%d scl:%d support_LPM:%d\n",
+		__func__, info->dtdata->fw_name, info->dtdata->max_x, info->dtdata->max_y,
 		info->dtdata->gpio_intr, info->client->irq, info->dtdata->gpio_sda,
-		info->dtdata->gpio_scl, info->dtdata->fw_name,
-		info->dtdata->support_lpm);
+		info->dtdata->gpio_scl, info->dtdata->support_lpm);
+
 
 	return 0;
 }
@@ -388,8 +339,8 @@ void mms_config_input(struct mms_ts_info *info)
 
 	input_mt_init_slots(input_dev, MAX_FINGER_NUM, INPUT_MT_DIRECT);
 
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, info->dtdata->max_x, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, info->dtdata->max_y, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, info->max_x, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, info->max_y, 0, 0);
 #ifdef CONFIG_SEC_FACTORY
 	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, INPUT_PRESSURE_MAX, 0, 0);
 #endif
@@ -403,13 +354,17 @@ void mms_config_input(struct mms_ts_info *info)
 	set_bit(KEY_BACK, input_dev->keybit);
 	set_bit(KEY_MENU, input_dev->keybit);
 #endif
+#if MMS_USE_NAP_MODE
+	set_bit(EV_KEY, input_dev->evbit);
+	set_bit(KEY_POWER, input_dev->keybit);
+#endif
 	set_bit(KEY_POWER, input_dev->keybit);
 	set_bit(KEY_BLACK_UI_GESTURE, input_dev->keybit);
 	input_dbg(true, &info->client->dev, "%s [DONE]\n", __func__);
 	return;
 }
 
-#ifdef MMS_SUPPORT_TA_MODE
+#ifdef CONFIG_VBUS_NOTIFIER
 int mms_vbus_notification(struct notifier_block *nb,
 		unsigned long cmd, void *data)
 {
@@ -464,54 +419,42 @@ void mms_register_callback(struct tsp_callbacks *cb)
 }
 #endif
 
-void mms_set_cover_type(struct mms_ts_info *info)
-{
-	u8 wbuf[4];
-	int ret = 0;
-
-	switch (info->cover_type) {
-		case MMS_VIEW_COVER:
-			wbuf[1] = MIP_R1_CTRL_GLOVE_MODE;
-			break;
-		case MMS_CLEAR_FLIP_COVER:
-			wbuf[1] = MIP_R1_CTRL_WINDOW_MODE;
-			break;
-		default:
-			input_err(true, &info->client->dev,
-					"%s: touch is not supported for %d cover\n",
-					__func__, info->cover_type);
-			return;
-	}
-
-	input_info(true, &info->client->dev, "%s: %d, type %d\n",
-			__func__, info->flip_enable, info->cover_type);
-
-	if (!info->enabled) {
-		input_err(true, &info->client->dev, "%s: dev is not enabled\n", __func__);
-		return;
-	}
-
-	wbuf[0] = MIP_R0_CTRL;
-	//wbuf[1] = MIP_R1_CTRL_WINDOW_MODE;
-	wbuf[2] = info->flip_enable;
-
-	ret = mms_i2c_write(info, wbuf, 3);
-	if (ret) {
-		input_err(true, &info->client->dev, "%s [ERROR] mms_i2c_write %x %x %x, ret %d\n",
-				__func__, wbuf[0], wbuf[1], wbuf[2], ret);
-		return;
-	}
-}
-
 int mms_lowpower_mode(struct mms_ts_info *info, int on)
 {
 	u8 wbuf[3];
 	u8 rbuf[1];
+	u8 area_cmd[11] = {0};
 
 	if (!info->dtdata->support_lpm) {
 		input_err(true, &info->client->dev, "%s not supported\n", __func__);
 		return -EINVAL;
 	}
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = true;
+	mutex_unlock(&info->lock);
+
+	if (info->dt2w_enable) {
+		area_cmd[0] = MIP_R0_AOT;
+		area_cmd[1] = MIP_R0_AOT_BOX_W;
+		area_cmd[2] = info->max_x & 0xff;
+		area_cmd[3] = (info->max_x >> 8) & 0xff;
+		area_cmd[4] = info->max_y & 0xff;
+		area_cmd[5] = (info->max_y >> 8) & 0xff;
+		/* x and y are zero, so no need to explicitly set */
+		disable_irq(info->client->irq);
+		if (mms_i2c_write(info, area_cmd, 10)) {
+			input_err(true, &info->client->dev, "%s [ERROR] mms_i2c_write\n", __func__);
+			enable_irq(info->client->irq);
+			goto out;
+		}
+		enable_irq(info->client->irq);
+	}
+
+out:
+	mutex_lock(&info->lock);
+	info->cmd_busy = false;
+	mutex_unlock(&info->lock);
 
 	/*	bit	Power state
 	  *	0	active

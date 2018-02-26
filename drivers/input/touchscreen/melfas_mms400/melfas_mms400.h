@@ -32,10 +32,10 @@
 #include <linux/platform_device.h>
 #include <linux/gpio_event.h>
 #include <linux/wakelock.h>
+#include <linux/vmalloc.h>
 #include <asm/uaccess.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/wakelock.h>
 
 #include "melfas_mms400_reg.h"
 
@@ -48,10 +48,6 @@
 #include <linux/muic/muic.h>
 #include <linux/muic/muic_notifier.h>
 #include <linux/vbus_notifier.h>
-#endif
-
-#ifdef CONFIG_INPUT_BOOSTER
-#include <linux/input/input_booster.h>
 #endif
 
 #ifdef CONFIG_SEC_DEBUG_TSP_LOG
@@ -100,9 +96,16 @@
 #define MMS_USE_DEVICETREE		0
 #endif
 
-#if defined(CONFIG_VBUS_NOTIFIER) && defined(USE_VBUS_NOTIFIER)
-#define MMS_SUPPORT_TA_MODE
+#if defined(CONFIG_GLOVE_TOUCH)
+#define GLOVE_MODE
 #endif
+
+#if defined(CONFIG_MELFAS_GHOST_TOUCH_AUTO_DETECT) \
+	&& defined(CONFIG_SEC_DEBUG_TSP_LOG) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
+#define MELFAS_GHOST_TOUCH_AUTO_DETECT
+#endif
+
+#define COVER_MODE
 
 #define MMS_DEVICE_NAME	"mms_ts"
 #define MMS_CONFIG_DATE		{0x00, 0x00, 0x00, 0x00}
@@ -113,6 +116,11 @@
 #define CHIP_NAME		"MMS438"
 #define CHIP_FW_CODE	"M4H0"
 #define FW_UPDATE_TYPE	"MMS438"
+#elif defined(CONFIG_TOUCHSCREEN_MELFAS_MMS438S)
+#define CHIP_MMS438S
+#define CHIP_NAME		"MMS438S"
+#define CHIP_FW_CODE	"M4HS"
+#define FW_UPDATE_TYPE	"MMS438S"
 #elif defined(CONFIG_TOUCHSCREEN_MELFAS_MMS449)
 #define CHIP_MMS449
 #define CHIP_NAME		"MMS449"
@@ -136,9 +144,9 @@
 #define RESET_ON_EVENT_ERROR		0
 #define ESD_COUNT_FOR_DISABLE		7
 #define MMS_USE_TOUCHKEY		0
-#define MMS_DEFAULT_EVENT_SIZE		8
 
 //Features
+#define MMS_USE_NAP_MODE		0
 #define MMS_USE_TEST_MODE		1
 #define MMS_USE_CMD_MODE		1
 #ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
@@ -165,9 +173,10 @@
 #define INPUT_PALM_MAX			1
 
 //Firmware update
-#define EXTERNAL_FW_PATH		"/sdcard/Firmware/TSP/melfas.mfsb"
+#define INTERNAL_FW_PATH		"tsp_melfas/mms449_carmen2.fw"
+#define EXTERNAL_FW_PATH		"/sdcard/melfas.mfsb"
 #define FFU_FW_PATH	"ffu_tsp.bin"
-#define MMS_USE_AUTO_FW_UPDATE	1
+#define MMS_USE_AUTO_FW_UPDATE		1
 #define MMS_FW_MAX_SECT_NUM		4
 #define MMS_FW_UPDATE_DEBUG		0
 #define MMS_FW_UPDATE_SECTION		1
@@ -177,6 +186,19 @@
 #define CMD_LEN				32
 #define CMD_RESULT_LEN			512
 #define CMD_PARAM_NUM			8
+#if defined(MELFAS_GHOST_TOUCH_AUTO_DETECT)
+#define GHOST_TIMER_INTERVAL	HZ /* 1 sec */
+#define MMS_GHOST_THRESHOLD 100
+#define MMS_INVALID_DATA -1
+#define GHOST_LOG_PATH	"/sdcard/log/tsp_ghost.log"
+#define GHOST_LOG_BUF_SIZE	100
+
+struct mms_data {
+	int x;
+	int y;
+	int z;
+};
+#endif
 
 /**
   * LPM status bitmask
@@ -191,13 +213,6 @@ typedef enum {
 	SPONGE_EVENT_TYPE_AOD_LONGPRESS		= 0x0A,
 	SPONGE_EVENT_TYPE_AOD_DOUBLETAB		= 0x0B
 } SPONGE_EVENT_TYPE;
-
-struct mms_finger {
-	unsigned char finger_state;
-	unsigned int move_count;
-	int lx;
-	int ly;
-};
 
 /**
  * Device info structure
@@ -237,7 +252,7 @@ struct mms_ts_info {
 	u8 fw_date;
 	u16 pre_chksum;
 	u16 rt_chksum;
-	struct mms_finger finger[MAX_FINGER_NUM];
+	unsigned char finger_state[MAX_FINGER_NUM];
 	int touch_count;
 
 	bool tkey_enable;
@@ -250,14 +265,15 @@ struct mms_ts_info {
 	u8 esd_cnt;
 	bool disable_esd;
 
+	unsigned int sram_addr_num;
+	u32 sram_addr[8];
+
 	u8 *print_buf;
 	int *image_buf;
 
 	bool test_busy;
 	bool cmd_busy;
 	bool dev_busy;
-
-	bool read_all_data;
 
 #if MMS_USE_CMD_MODE
 	dev_t cmd_dev_t;
@@ -276,7 +292,7 @@ struct mms_ts_info {
 	u8 *dev_fs_buf;
 #endif
 
-#ifdef MMS_SUPPORT_TA_MODE
+#ifdef CONFIG_VBUS_NOTIFIER
 	struct notifier_block vbus_nb;
 	bool ta_stsatus;
 #endif
@@ -290,31 +306,26 @@ struct mms_ts_info {
 	u8 tsp_dump_lock;
 	u8 add_log_header;
 #endif
-#ifdef CONFIG_DUAL_TSP
-	int flip_status;
-	int flip_status_current;
-	struct mutex mms_switching_mutex;
-	struct delayed_work switching_work;
-	struct notifier_block hall_ic_nb;
+#if defined(MELFAS_GHOST_TOUCH_AUTO_DETECT)
+	struct mms_data cur_data[MAX_FINGER_NUM];
+	struct mms_data prev_data[MAX_FINGER_NUM];
+	struct mms_data ghost_data;
+	bool data_first_update;
+	bool ghost_file_created;
+	struct timer_list ghost_timer;
 #endif
-	bool flip_enable;
-	int cover_type;
 
 	bool lowpower_mode;
 	unsigned char lowpower_flag;
-	struct completion resume_done;
-	struct wake_lock wakelock;
 	int ic_status;
 	unsigned int scrub_id;
-	unsigned int scrub_x;	
+	unsigned int scrub_x;
 	unsigned int scrub_y;
 
-	u8 ito_test[4];
 	u8 check_multi;
 	unsigned int multi_count;
-	unsigned int wet_count;
-	unsigned int dive_count;
-	unsigned int comm_err_count;	
+	unsigned int comm_err_count;
+	bool dt2w_enable;
 };
 
 enum IC_STATUS{
@@ -322,6 +333,7 @@ enum IC_STATUS{
 	PWR_OFF = 1,
 	LPM_RESUME = 2,
 	LPM_SUSPEND = 3,
+
 };
 
 /**
@@ -335,8 +347,8 @@ struct mms_devicetree_data {
 	const char *gpio_io_en;
 	int gpio_sda;
 	int gpio_scl;
-	int tsp_sel;
 	int panel;
+	int fw_update_skip;
 	struct regulator *vdd_io;
 	const char *fw_name;
 	bool support_lpm;
@@ -385,21 +397,6 @@ enum fw_update_errno{
 	fw_err_uptodate = 1,
 };
 
-enum mms_cover_id {
-	MMS_FLIP_WALLET = 0,
-	MMS_VIEW_COVER,
-	MMS_COVER_NOTHING1,
-	MMS_VIEW_WIRELESS,
-	MMS_COVER_NOTHING2,
-	MMS_CHARGER_COVER,
-	MMS_VIEW_WALLET,
-	MMS_LED_COVER,
-	MMS_CLEAR_FLIP_COVER,
-	MMS_QWERTY_KEYBOARD_EUR,
-	MMS_QWERTY_KEYBOARD_KOR,
-	MMS_MONTBLANC_COVER = 100,
-};
-
 /**
  * Declarations
  */
@@ -425,7 +422,7 @@ int mms_power_control(struct mms_ts_info *info, int enable);
 void mms_clear_input(struct mms_ts_info *info);
 void mms_report_input_event(struct mms_ts_info *info, u8 sz, u8 *buf);
 void mms_input_event_handler(struct mms_ts_info *info, u8 sz, u8 *buf);
-#ifdef MMS_SUPPORT_TA_MODE
+#ifdef CONFIG_VBUS_NOTIFIER
 int mms_charger_attached(struct mms_ts_info *info, bool status);
 #endif
 
@@ -433,7 +430,6 @@ int mms_charger_attached(struct mms_ts_info *info, bool status);
 int mms_parse_devicetree(struct device *dev, struct mms_ts_info *info);
 #endif
 void mms_config_input(struct mms_ts_info *info);
-void mms_set_cover_type(struct mms_ts_info *info);
 int mms_lowpower_mode(struct mms_ts_info *info, int on);
 
 //fw_update
@@ -466,7 +462,7 @@ void mms_charger_status_cb(struct tsp_callbacks *cb, int status);
 void mms_register_callback(struct tsp_callbacks *cb);
 #endif
 
-#ifdef MMS_SUPPORT_TA_MODE
+#ifdef CONFIG_VBUS_NOTIFIER
 int mms_vbus_notification(struct notifier_block *nb,
 		unsigned long cmd, void *data);
 #endif

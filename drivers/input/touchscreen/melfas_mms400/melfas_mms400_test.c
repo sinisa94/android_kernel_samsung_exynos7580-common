@@ -395,6 +395,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	u8 data_type_sign;
 	u8 buf_addr_h;
 	u8 buf_addr_l;
+	int ret = 1;
 
 	input_dbg(true, &info->client->dev, "%s [START]\n", __func__);
 	input_dbg(true, &info->client->dev, "%s - test_type[%d]\n", __func__, test_type);
@@ -410,6 +411,18 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	mutex_unlock(&info->lock);
 
 	memset(info->print_buf, 0, PAGE_SIZE);
+
+	disable_irq(info->client->irq);
+	mms_clear_input(info);
+
+	//disable touch event
+	wbuf[0] = MIP_R0_CTRL;
+	wbuf[1] = MIP_R1_CTRL_EVENT_TRIGGER_TYPE;
+	wbuf[2] = MIP_TRIGGER_TYPE_NONE;
+	if (mms_i2c_write(info, wbuf, 3)) {
+		dev_err(&info->client->dev, "%s [ERROR] Disable event\n", __func__);
+		goto EXIT;
+	}
 
 	//check test type
 	switch(test_type){
@@ -432,7 +445,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	default:
 		input_err(true, &info->client->dev, "%s [ERROR] Unknown test type\n", __func__);
 		sprintf(info->print_buf, "\nERROR : Unknown test type\n\n");
-		goto ERROR;
+		goto EXIT;
 		break;
 	}
 
@@ -442,7 +455,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	wbuf[2] = MIP_CTRL_MODE_TEST_CM;
 	if (mms_i2c_write(info, wbuf, 3)) {
 		input_err(true, &info->client->dev, "%s [ERROR] Write test mode\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	//wait ready status
@@ -458,7 +471,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 
 	if (wait_cnt <= 0) {
 		input_err(true, &info->client->dev, "%s [ERROR] Wait timeout\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	input_dbg(true, &info->client->dev, "%s - set control mode\n", __func__);
@@ -469,7 +482,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	wbuf[2] = test_type;
 	if (mms_i2c_write(info, wbuf, 3)) {
 		input_err(true, &info->client->dev, "%s [ERROR] Write test type\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	input_dbg(true, &info->client->dev, "%s - set test type\n", __func__);
@@ -487,7 +500,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 
 	if (wait_cnt <= 0) {
 		input_err(true, &info->client->dev, "%s [ERROR] Wait timeout\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	input_dbg(true, &info->client->dev, "%s - ready\n", __func__);
@@ -497,7 +510,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	wbuf[1] = MIP_R1_TEST_DATA_FORMAT;
 	if (mms_i2c_read(info, wbuf, 2, rbuf, 6)) {
 		input_err(true, &info->client->dev, "%s [ERROR] Read data format\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 	row_num = rbuf[0];
 	col_num = rbuf[1];
@@ -521,7 +534,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	wbuf[1] = MIP_R1_TEST_BUF_ADDR;
 	if (mms_i2c_read(info, wbuf, 2, rbuf, 2)) {
 		input_err(true, &info->client->dev, "%s [ERROR] Read buf addr\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	buf_addr_l = rbuf[0];
@@ -533,7 +546,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	if (mms_proc_table_data(info, size, data_type_size, data_type_sign,
 		buf_addr_h, buf_addr_l, row_num, col_num, buffer_col_num, rotate, key_num)) {
 		input_err(true, &info->client->dev, "%s [ERROR] mms_proc_table_data\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	//set normal mode
@@ -542,7 +555,7 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 	wbuf[2] = MIP_CTRL_MODE_NORMAL;
 	if (mms_i2c_write(info, wbuf, 3)) {
 		input_err(true, &info->client->dev, "%s [ERROR] mms_i2c_write\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	//wait ready status
@@ -558,26 +571,35 @@ int mms_run_test(struct mms_ts_info *info, u8 test_type)
 
 	if (wait_cnt <= 0) {
 		input_err(true, &info->client->dev, "%s [ERROR] Wait timeout\n", __func__);
-		goto ERROR;
+		goto EXIT;
 	}
 
 	input_dbg(true, &info->client->dev, "%s - set normal mode\n", __func__);
+	ret = 0;
 
-	//exit
+EXIT:
+	//enable touch event
+	wbuf[0] = MIP_R0_CTRL;
+	wbuf[1] = MIP_R1_CTRL_EVENT_TRIGGER_TYPE;
+	wbuf[2] = MIP_TRIGGER_TYPE_INTR;
+	if (mms_i2c_write(info, wbuf, 3)) {
+		dev_err(&info->client->dev, "%s [ERROR] Enable event\n", __func__);
+		ret = 1;
+	}
+
+	mms_reboot(info);
+	enable_irq(info->client->irq);
+
 	mutex_lock(&info->lock);
 	info->test_busy = false;
 	mutex_unlock(&info->lock);
 
-	input_dbg(true, &info->client->dev, "%s [DONE]\n", __func__);
-	return 0;
+	if (ret)
+		dev_err(&info->client->dev, "%s [ERROR]\n", __func__);
+	else
+		dev_info(&info->client->dev, "%s [DONE]\n", __func__);
 
-ERROR:
-	mutex_lock(&info->lock);
-	info->test_busy = false;
-	mutex_unlock(&info->lock);
-
-	input_err(true, &info->client->dev, "%s [ERROR]\n", __func__);
-	return 1;
+	return ret;
 }
 
 /**
@@ -1374,28 +1396,28 @@ static ssize_t mms_sys_test_short(struct device *dev,
 /**
  * Sysfs functions
  */
-static DEVICE_ATTR(fw_version, 0660, mms_sys_fw_version, NULL);
-static DEVICE_ATTR(info, 0660, mms_sys_info, NULL);
-static DEVICE_ATTR(device_enable, 0660, mms_sys_device_enable, NULL);
-static DEVICE_ATTR(device_disable, 0660, mms_sys_device_disable, NULL);
-static DEVICE_ATTR(irq_enable, 0660, mms_sys_irq_enable, NULL);
-static DEVICE_ATTR(irq_disable, 0660, mms_sys_irq_disable, NULL);
-static DEVICE_ATTR(power_on, 0660, mms_sys_power_on, NULL);
-static DEVICE_ATTR(power_off, 0660, mms_sys_power_off, NULL);
-static DEVICE_ATTR(reboot, 0660, mms_sys_reboot, NULL);
-static DEVICE_ATTR(mode_glove, 0660, mms_sys_glove_mode_show, mms_sys_glove_mode_store);
-static DEVICE_ATTR(mode_charger, 0660,
+static DEVICE_ATTR(fw_version, S_IWUSR | S_IWGRP, mms_sys_fw_version, NULL);
+static DEVICE_ATTR(info, S_IWUSR | S_IWGRP, mms_sys_info, NULL);
+static DEVICE_ATTR(device_enable, S_IWUSR | S_IWGRP, mms_sys_device_enable, NULL);
+static DEVICE_ATTR(device_disable, S_IWUSR | S_IWGRP, mms_sys_device_disable, NULL);
+static DEVICE_ATTR(irq_enable, S_IWUSR | S_IWGRP, mms_sys_irq_enable, NULL);
+static DEVICE_ATTR(irq_disable, S_IWUSR | S_IWGRP, mms_sys_irq_disable, NULL);
+static DEVICE_ATTR(power_on, S_IWUSR | S_IWGRP, mms_sys_power_on, NULL);
+static DEVICE_ATTR(power_off, S_IWUSR | S_IWGRP, mms_sys_power_off, NULL);
+static DEVICE_ATTR(reboot, S_IWUSR | S_IWGRP, mms_sys_reboot, NULL);
+static DEVICE_ATTR(mode_glove, S_IWUSR | S_IWGRP, mms_sys_glove_mode_show, mms_sys_glove_mode_store);
+static DEVICE_ATTR(mode_charger, S_IWUSR | S_IWGRP,
 			mms_sys_charger_mode_show, mms_sys_charger_mode_store);
-static DEVICE_ATTR(mode_cover_window, 0660,
+static DEVICE_ATTR(mode_cover_window, S_IWUSR | S_IWGRP,
 			mms_sys_window_mode_show, mms_sys_window_mode_store);
-static DEVICE_ATTR(mode_palm_rejection, 0660,
+static DEVICE_ATTR(mode_palm_rejection, S_IWUSR | S_IWGRP,
 			mms_sys_palm_rejection_mode_show, mms_sys_palm_rejection_mode_store);
-static DEVICE_ATTR(image_intensity, 0660, mms_sys_intensity, NULL);
-static DEVICE_ATTR(image_rawdata, 0660, mms_sys_rawdata, NULL);
-static DEVICE_ATTR(test_cm_delta, 0660, mms_sys_test_cm_delta, NULL);
-static DEVICE_ATTR(test_cm_abs, 0660, mms_sys_test_cm_abs, NULL);
-static DEVICE_ATTR(test_cm_jitter, 0660, mms_sys_test_cm_jitter, NULL);
-static DEVICE_ATTR(test_short, 0660, mms_sys_test_short, NULL);
+static DEVICE_ATTR(image_intensity, S_IWUSR | S_IWGRP, mms_sys_intensity, NULL);
+static DEVICE_ATTR(image_rawdata, S_IWUSR | S_IWGRP, mms_sys_rawdata, NULL);
+static DEVICE_ATTR(test_cm_delta, S_IWUSR | S_IWGRP, mms_sys_test_cm_delta, NULL);
+static DEVICE_ATTR(test_cm_abs, S_IWUSR | S_IWGRP, mms_sys_test_cm_abs, NULL);
+static DEVICE_ATTR(test_cm_jitter, S_IWUSR | S_IWGRP, mms_sys_test_cm_jitter, NULL);
+static DEVICE_ATTR(test_short, S_IWUSR | S_IWGRP, mms_sys_test_short, NULL);
 
 /**
  * Sysfs attr list info

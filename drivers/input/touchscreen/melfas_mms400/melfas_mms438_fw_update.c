@@ -234,7 +234,6 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 	struct i2c_client *client = info->client;
 	int i;
 	int retires = 3;
-	int ret;
 	int nRet;
 	int nStartAddr;
 	int nWriteLength;
@@ -261,9 +260,9 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 
 	//Read firmware file
 	fw_hdr = (struct mms_bin_hdr *)fw_data;
-	img = kzalloc(sizeof(*img) * fw_hdr->section_num, GFP_KERNEL);
+	img = vzalloc(sizeof(*img) * fw_hdr->section_num);
 	if (!img) {
-		input_err(true, &client->dev, "Failed to allocate memory\n");
+		input_err(true, &client->dev, "Failed to img allocate memory\n");
 		nRet = -ENOMEM;
 		goto err_alloc_img;
 	}
@@ -340,6 +339,9 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 		input_info(true, &client->dev, "%s - Force update\n", __func__);
 	}
 
+	if(info->dtdata->fw_update_skip)
+		update_flag = false;
+
 	//Exit when up-to-date
 	if (update_flag == false) {
 		nRet = fw_err_uptodate;
@@ -369,16 +371,16 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 	offsetStart = offsetStart * 1024;
 
 	//Load firmware data
-	data = kzalloc(sizeof(u8) * fw_hdr->binary_length, GFP_KERNEL);
+	data = vzalloc(sizeof(u8) * fw_hdr->binary_length);
 	if (!data) {
-		input_err(true, &client->dev, "Failed to allocate memory\n");
+		input_err(true, &client->dev, "Failed to data allocate memory\n");
 		nRet = -ENOMEM;
 		goto err_alloc_data;
 	}
 	size = fw_hdr->binary_length;
-	cpydata = kzalloc(ISC_PAGE_SIZE, GFP_KERNEL);
+	cpydata = vzalloc(ISC_PAGE_SIZE);
 	if (!cpydata) {
-		input_err(true, &client->dev, "Failed to allocate memory\n");
+		input_err(true, &client->dev, "Failed to cpydata allocate memory\n");
 		nRet = -ENOMEM;
 		goto err_alloc_cpydata;
 	}
@@ -406,8 +408,14 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 	//Erase first page
 	input_info(true, &client->dev, "%s - Erase first page : Offset[0x%04X]\n",
 				__func__, offsetStart);
-	nRet = mms_isc_erase_page(info, offsetStart);
-	if (nRet != 0) {
+	retires = 3;
+	while (retires--) {
+		nRet = mms_isc_erase_page(info, offsetStart);
+		if (nRet == 0) {
+			break;
+		}
+	}
+	if (retires < 0) {
 		input_err(true, &client->dev, "%s [ERROR] clear first page failed\n", __func__);
 		goto ERROR;
 	}
@@ -441,7 +449,7 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 #endif
 			input_err(true, &client->dev, "%s [ERROR] verify page failed\n", __func__);
 
-			ret = -1;
+			nRet = -1;
 			goto ERROR;
 		}
 
@@ -486,12 +494,12 @@ int mms_flash_fw(struct mms_ts_info *info, const u8 *fw_data,
 ERROR:
 	input_err(true, &client->dev, "%s [ERROR]\n", __func__);
 DONE:
-	kfree(cpydata);
+	vfree(cpydata);
 err_alloc_cpydata:
-	kfree(data);
+	vfree(data);
 err_alloc_data:
 EXIT:
-	kfree(img);
+	vfree(img);
 err_alloc_img:
 	return nRet;
 }
